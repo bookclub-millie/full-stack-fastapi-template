@@ -68,6 +68,8 @@ Add these repository secrets:
 
 Use the same values configured in FastAPI Cloud. For `DATABASE_URL`, use the connection URL from your database provider. The database must be reachable from GitHub-hosted runners so the preparation step can connect to it.
 
+Finally, add the repository variable `FASTAPI_CLOUD_DEPLOY` with the value `true`. The Deploy workflow is skipped until then, so a repository created from this template does not fail on every push to `master` before deployment is set up.
+
 The deployment workflow performs these steps:
 
 1. Installs and builds the frontend into `backend/app/frontend`.
