@@ -78,9 +78,9 @@ ruleset은 이와 별도로 마지막 push를 한 사람이 아닌 사람의 승
 
 ## 시험 결과 수집
 
-`test-backend`는 pytest JUnit 결과(`junit-backend`), Playwright는 JSON 결과(`playwright-results`)를 artifact로 30일 보관한다. 테스트 이름에 TC ID를 달면(pytest `test_tc_01_…`, Playwright `test("TC-01 …")`) 다음 명령이 `e2e-test.md` 실행 결과 표의 행을 출력한다. `TC-1`과 `TC-01`은 같은 TC로 본다.
+`test-backend`는 pytest JUnit 결과(`junit-backend`), Playwright는 JSON 결과(`playwright-results`), Frontend Quality는 vitest JUnit 결과(`frontend-unit-results`)를 artifact로 30일 보관한다. 테스트 이름에 TC ID를 달면(pytest `test_tc_01_…`, Playwright·vitest `test("TC-01 …")`) 다음 명령이 `e2e-test.md` 실행 결과 표의 행을 출력한다. `TC-1`과 `TC-01`은 같은 TC로 본다.
 
-결과가 수집되는 테스트는 `backend/tests`(pytest)와 `frontend/tests/e2e`(Playwright)뿐이다. `frontend/src`의 vitest, `frontend/tests/visual` 등에 붙인 TC는 수집되지 않으므로 검사가 실패로 알린다. push 전에는 다음으로 확인한다(prek 훅 `tc-check`도 같은 검사를 한다).
+결과가 수집되는 테스트는 `backend/tests`(pytest), `frontend/tests/e2e`(Playwright), `frontend/src/**/*.test.ts`(vitest)뿐이다. `backend/app`, `.test.tsx`, Storybook 등에 붙인 TC는 수집되지 않으므로 검사가 실패로 알린다. Frontend Quality는 프론트 관련 파일이 바뀐 커밋에서만 돌므로, vitest TC의 결과는 그런 커밋의 SHA에서 나온다. vitest `it.fails`는 실패해도 통과로 기록되므로 TC를 달 수 없다. push 전에는 다음으로 확인한다(prek 훅 `tc-check`도 같은 검사를 한다).
 
 ```bash
 python3 -I scripts/harness/tc_check.py

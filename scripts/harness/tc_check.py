@@ -135,7 +135,7 @@ def main() -> int:
     if failures:
         print(
             f"\nTC 연결 문제 {len(failures)}건. 형식: {tcnames.pytest_form()}, "
-            f"{tcnames.playwright_form()}. 위치: {tcnames.LOCATIONS}. "
+            f"{tcnames.title_form()}. 위치: {tcnames.LOCATIONS}. "
             f"테스트의 TC는 {traceability.E2E} 테스트 시나리오에 행이 있어야 합니다."
         )
         return 1

@@ -2,7 +2,7 @@
 
 - 상태: 채택
 - 날짜: 2026-10-14
-- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정), #4·#5·#6(구현), TC 이름 검사 추가(2026-10-14)
+- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정), #4·#5·#6(구현), #10(TC 이름 검사), vitest 수집 추가(2026-10-14)
 
 ## 맥락
 
@@ -23,7 +23,7 @@ OpenSpec을 작업 단위의 원천으로 두고, 문서(`docs/*.md`, `README.md
 | proposal.md 머리 | `요구사항: REQ-01[, REQ-02]`, `담당: @github-id`, `범위: 필수 \| 추가` | `prd.md` 추적표, `project-brief.md` 범위, Issue 담당자 |
 | spec의 Requirement | `### Requirement: REQ-01 <이름>` | `prd.md` REQ |
 | spec의 Scenario | `#### Scenario: AC-01 <이름>`. 사용자 흐름·보안 항목이면 본문에 `연결: FLOW-01, SEC-03` | `prd.md` AC, `experience.md` FLOW, `security-compliance.md` SEC |
-| 테스트 이름 | pytest `test_tc_01_...`(`backend/tests`), Playwright `test("TC-01 ...")`(`frontend/tests/e2e`). 테스트 하나에 TC 하나. `TC-1`과 `TC-01`은 같은 TC | `e2e-test.md` TC와 실행 결과 |
+| 테스트 이름 | pytest `test_tc_01_...`(`backend/tests`), Playwright `test("TC-01 ...")`(`frontend/tests/e2e`), vitest `it("TC-01 ...")`(`frontend/src/**/*.test.ts`). 테스트 하나에 TC 하나. `TC-1`과 `TC-01`은 같은 TC | `e2e-test.md` TC와 실행 결과 |
 | tasks.md 테스트 작업 | `- [ ] 2.3 TC-07 (AC-07) <파일>::<테스트 이름>`. 파일 위치는 spec PR에서 리뷰한다 | 구현할 테스트, archive 때 실제 위치와 대조 |
 
 REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. 새 번호는 `prd.md`·`experience.md`·`e2e-test.md`에 있는 가장 큰 번호 다음을 쓴다.
@@ -82,7 +82,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 
 ### 5. 증거 수집 (`scripts/harness/collect_evidence.py`)
 
-- CI가 테스트 결과를 남긴다. `test-backend`는 pytest `--junitxml` 결과를, `playwright`는 JSON reporter 결과를 artifact로 올린다.
+- CI가 테스트 결과를 남긴다. `test-backend`는 pytest `--junitxml` 결과를, `playwright`는 JSON reporter 결과를, Frontend Quality는 vitest JUnit 결과를 artifact로 올린다.
 - 도구는 지정한 커밋(기본 master HEAD)의 실행과 artifact를 `gh`로 받아, TC ID별 PASS/FAIL/SKIP, 40자 SHA, 실행 시각, 실행 링크를 `e2e-test.md` 실행 결과 표 형식으로 출력한다.
 - 에이전트와 사람은 이 출력만 문서에 옮긴다. 실행하지 않은 TC는 출력에 없으므로 미검증으로 남는다.
 
@@ -121,7 +121,8 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
   2. Issue 동기화
   3. 추적성 검사, 증거 수집(테스트 결과 artifact 포함), 제출 점검
 - 표 파싱은 문서 템플릿의 열 이름(`REQ`, `상태`, `TC` 등)에 의존한다. 열 이름을 바꾸면 검사도 고쳐야 한다.
-- TC 결과는 `backend/tests`·`frontend/tests/e2e`에서 테스트 이름에 TC ID를 단 경우에만 수집된다. `frontend/src`의 vitest 결과는 아직 수집하지 않는다.
+- TC 결과는 `backend/tests`·`frontend/tests/e2e`·`frontend/src/**/*.test.ts`에서 테스트 이름에 TC ID를 단 경우에만 수집된다. Storybook 상호작용 테스트는 이름이 story 이름에서 나와 수집하지 않는다.
+- vitest 결과를 내는 Frontend Quality는 프론트 관련 파일이 바뀐 커밋에서만 돈다. JUnit에는 기대 실패(`it.fails`) 표시가 없어 수집기가 구분하지 못하므로, 정적 검사가 TC를 단 `it.fails`를 막는다.
 - 자동화할 수 없는 시험은 종류가 정확히 `수동`인 TC로 둘 수 있다. 수집 결과가 없으므로 미검증으로 남고, 근거 없는 완료 검사도 수동 TC의 PASS 행을 근거로 세지 않는다.
 - 테스트 이름 검사는 문자 그대로의 제목만 읽는다. 변수·반복문으로 만든 제목, `test`를 다른 이름으로 바꿔 부른 호출, 게이트의 Python이 해석하지 못하는 문법의 파일(이 경우 `def test…` 줄만 읽음)은 정확히 알아보지 못한다.
 - 이 템플릿 저장소는 Issues가 꺼져 있어 Issue 동기화의 실제 동작은 팀 저장소의 첫 실행에서 확인한다.

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest import mock
 
 import collect_evidence
+import tcnames
 from collect_evidence import merge, parse_junit, parse_playwright, render_rows
 
 SHA = "b" * 40
@@ -80,6 +81,20 @@ class ParseTest(unittest.TestCase):
                 ("TC-05", "FAIL"),
                 ("TC-06", "SKIP"),
             ],
+        )
+        self.assertEqual(untagged, 1)
+
+    def test_vitest_names_carry_describe_blocks(self) -> None:
+        report = """<testsuites><testsuite name="src/a.test.ts">
+  <testcase classname="src/a.test.ts" name="TC-02 묶음 &gt; TC-05 통과"/>
+  <testcase classname="src/a.test.ts" name="묶음 &gt; TC-06 실패"><failure message="x"/></testcase>
+  <testcase classname="src/a.test.ts" name="묶음 &gt; TC-07 건너뜀"><skipped/></testcase>
+  <testcase classname="src/a.test.ts" name="묶음 &gt; 이름 없음"/>
+</testsuite></testsuites>"""
+        results, untagged = parse_junit(report, tcnames.vitest_tc)
+        self.assertEqual(
+            [(r.tc, r.status) for r in results],
+            [("TC-05", "PASS"), ("TC-06", "FAIL"), ("TC-07", "SKIP")],
         )
         self.assertEqual(untagged, 1)
 

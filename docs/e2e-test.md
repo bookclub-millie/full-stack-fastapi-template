@@ -23,7 +23,7 @@
 | TC | REQ·AC·FLOW | 종류 | 사전 조건 | 입력·행동 | 예상 결과 | 실행 명령 |
 |---|---|---|---|---|---|---|
 
-핵심 로직 단위 시험과 사용자 흐름 E2E를 구분한다. TC ID는 테스트 이름에도 붙인다(pytest `test_tc_01_…`, Playwright `test("TC-01 …")`). 실행 결과는 `backend/tests`와 `frontend/tests/e2e`에 있는 이 이름의 테스트에서만 수집한다. 자동화할 수 없는 시험은 종류를 `수동`으로 적는다. 정상·오류·권한 경계·저장 후 재조회를 포함하고, [요구사항](prd.md)과 [사용자 경험](experience.md)의 REQ·AC·FLOW에 연결한다.
+핵심 로직 단위 시험과 사용자 흐름 E2E를 구분한다. TC ID는 테스트 이름에도 붙인다(pytest `test_tc_01_…`, Playwright·vitest `test("TC-01 …")`). 실행 결과는 `backend/tests`(서버 단위·API), `frontend/src/**/*.test.ts`(프론트 단위), `frontend/tests/e2e`(사용자 흐름 E2E)에 있는 이 이름의 테스트에서만 수집한다. 자동화할 수 없는 시험은 종류를 `수동`으로 적는다. 정상·오류·권한 경계·저장 후 재조회를 포함하고, [요구사항](prd.md)과 [사용자 경험](experience.md)의 REQ·AC·FLOW에 연결한다.
 
 ### 시나리오 상세 작성 양식
 

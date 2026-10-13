@@ -5,8 +5,9 @@
 
 Reads the CI runs for that commit with the `gh` CLI (your login), downloads the
 test reports they uploaded (pytest JUnit XML from Test Backend, Playwright JSON
-from Playwright Tests), maps test names with a TC id (pytest `test_tc_01_...`,
-Playwright `TC-01 ...`; TC-1 and TC-01 are the same TC) to PASS / FAIL / SKIP,
+from Playwright Tests, vitest JUnit XML from Frontend Quality), maps test names
+with a TC id (pytest `test_tc_01_...`, Playwright and vitest `TC-01 ...`; TC-1
+and TC-01 are the same TC) to PASS / FAIL / SKIP,
 and prints one row per TC for the 실행 결과 table. Copy the rows as they are;
 a TC that did not run is not printed and stays 미검증.
 See docs/adr/001-openspec-docs-traceability.md.
@@ -21,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -33,6 +35,7 @@ SOURCES = (
     # (workflow name, artifact name, report file, parser key)
     ("Test Backend", "junit-backend", "junit.xml", "junit"),
     ("Playwright Tests", "playwright-results", "results.json", "playwright"),
+    ("Frontend Quality", "frontend-unit-results", "unit.xml", "vitest"),
 )
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 ORDER = {"FAIL": 0, "PASS": 1, "SKIP": 2}
@@ -55,12 +58,17 @@ class Evidence:
     )  # (workflow, url, time)
 
 
-def parse_junit(text: str) -> tuple[list[TestResult], int]:
-    """(results with a TC id, number of tests without one)."""
+def parse_junit(
+    text: str, tc_of: Callable[[str], str | None] = tcnames.pytest_tc
+) -> tuple[list[TestResult], int]:
+    """(results with a TC id, number of tests without one).
+
+    pytest names are function names; vitest names are `describe > title`.
+    """
     results, untagged = [], 0
     for case in ET.fromstring(text).iter("testcase"):
         name = case.get("name", "")
-        tc = tcnames.pytest_tc(name)
+        tc = tc_of(name)
         if not tc:
             untagged += 1
             continue
@@ -191,8 +199,12 @@ def collect(repo: str, sha: str) -> tuple[list[Evidence], list[str]]:
             if not report.is_file():
                 warnings.append(f"{workflow}: {artifact} 안에 {filename}이 없습니다")
                 continue
-            parse = parse_junit if kind == "junit" else parse_playwright
-            results, untagged = parse(report.read_text(encoding="utf-8"))
+            text = report.read_text(encoding="utf-8")
+            if kind == "playwright":
+                results, untagged = parse_playwright(text)
+            else:
+                tc_of = tcnames.vitest_tc if kind == "vitest" else tcnames.pytest_tc
+                results, untagged = parse_junit(text, tc_of)
         if untagged:
             warnings.append(
                 f"{workflow}: TC ID가 없는 테스트 {untagged}개는 집계하지 않았습니다"

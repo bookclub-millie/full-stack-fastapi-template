@@ -78,7 +78,8 @@ class FilesTest(unittest.TestCase):
             "frontend/tests/e2e/items.spec.ts": (True, True),
             "frontend/tests/e2e/auth.setup.ts": (False, True),
             "frontend/tests/visual/kds.spec.ts": (True, False),
-            "frontend/src/lib/utils.test.ts": (True, False),
+            "frontend/src/lib/utils.test.ts": (True, True),
+            "frontend/src/routes/login.test.tsx": (True, False),
             "packages/ui/src/button.test.tsx": (True, False),
             "frontend/node_modules/x/a.test.ts": (False, False),
             "backend/.venv/lib/site-packages/x/test_y.py": (False, False),
@@ -114,7 +115,7 @@ class ScanTest(unittest.TestCase):
     def test_tc_outside_collected_locations(self) -> None:
         for path, text in [
             (
-                "frontend/src/lib/a.test.ts",
+                "frontend/src/lib/a.test.tsx",
                 'it("TC-01 단위", () => {})\nit("평범", () => {})\n',
             ),
             ("backend/app/tests/test_x.py", "def test_tc_01_x(): pass\n"),
@@ -124,6 +125,37 @@ class ScanTest(unittest.TestCase):
                 self.assertEqual(tagged, [])
                 self.assertEqual(len(problems), 1)
                 self.assertIn("수집되지 않습니다", problems[0].reason)
+
+    def test_vitest_titles(self) -> None:
+        text = (
+            "import { describe, expect, it, test } from 'vitest'\n"
+            "describe('묶음', () => {\n"
+            "  it('TC-05 통과', () => { expect(1).toBe(1) })\n"
+            "  it.skip('TC-07 건너뜀', () => {})\n"
+            "  it.todo('TC-08 할 일')\n"
+            "  it.fails('TC-09 실패 기대', () => {})\n"
+            "  it.concurrent('TC-11 동시', async () => {})\n"
+            "})\n"
+            "test('TC-10 최상위', () => {})\n"
+            "describe('TC-12 묶음', () => {})\n"
+        )
+        tagged, problems = scan("frontend/src/lib/a.test.ts", text)
+        self.assertEqual(
+            [(t.tc, t.runs) for t in tagged],
+            [
+                ("TC-05", True),
+                ("TC-07", False),
+                ("TC-08", False),
+                ("TC-11", True),
+                ("TC-10", True),
+            ],
+        )
+        reasons = {p.line: p.reason for p in problems}
+        self.assertIn("it.fails()은 실패를 기대하는 테스트", reasons[6])
+        self.assertIn("describe() 제목의 TC ID는 수집되지 않습니다", reasons[10])
+        # `it` is not a Playwright test function.
+        _, problems = scan(E2E, "it('TC-01 x', () => {})\n")
+        self.assertIn("it() 제목의 TC ID는 수집되지 않습니다", problems[0].reason)
 
     def test_pytest_collects_only_real_tests(self) -> None:
         tagged, problems = scan("backend/tests/api/test_x.py", PYTEST)
