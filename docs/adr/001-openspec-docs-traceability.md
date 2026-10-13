@@ -70,11 +70,11 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 |---|---|
 | 실패 (`harness/checks`) | PR이 변경을 archive했는데 `development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상 채움)이 없음 |
 | 실패 (`harness/checks`) | `prd.md`에서 상태가 `완료`인 REQ에 대해 `e2e-test.md` 실행 결과에 PASS와 40자 SHA가 있는 행이 하나도 없음 (근거 없는 완료) |
-| 참고 (차단 안 함) | OpenSpec의 REQ·AC가 문서에 없음, 문서의 REQ가 OpenSpec에 없음, 정의되지 않은 ID 참조, archive된 변경의 AC에 TC가 없음 |
+| 참고 (차단 안 함) | 이번 PR이 건드린 변경에 대해: OpenSpec의 REQ·AC가 `prd.md`에 없음, 시나리오의 `연결` ID(FLOW·SEC)가 문서에 없음, archive된 변경의 AC에 TC가 없음, proposal의 `요구사항`·`담당` 누락. 이번 PR에서 바뀌지 않은 근거 없는 완료 |
 
 참고 항목은 게이트 코멘트에만 보인다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다.
 
-### 5. 증거 수집 (`scripts/evidence/collect.py`)
+### 5. 증거 수집 (`scripts/harness/collect_evidence.py`)
 
 - CI가 테스트 결과를 남긴다. `test-backend`는 pytest `--junitxml` 결과를, `playwright`는 JSON reporter 결과를 artifact로 올린다.
 - 도구는 지정한 커밋(기본 master HEAD)의 실행과 artifact를 `gh`로 받아, TC ID별 PASS/FAIL/SKIP, 40자 SHA, 실행 시각, 실행 링크를 `e2e-test.md` 실행 결과 표 형식으로 출력한다.

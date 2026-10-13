@@ -18,6 +18,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 | [Test Backend](../.github/workflows/test-backend.yml) | PR·master push | PR 코드 실행, 비밀값 없음 | `test-backend` |
 | [AI Review](../.github/workflows/ai-review.yml) | 같은 저장소의 사람 PR | 모델 job은 읽기 전용, 게시 job은 모델 없음 | 아니요 |
 | [OpenSpec Issues](../.github/workflows/openspec-issues.yml) | master push(`openspec/**`)·매일·수동 | 기본 브랜치 코드, Issue 쓰기 권한 | 아니요 |
+| [Submission Check](../.github/workflows/submission-check.yml) | 수동 실행 | 기본 브랜치 코드, 읽기 권한만 | 아니요 |
 | [Test Harness](../.github/workflows/test-harness.yml) | `scripts/harness/` 변경 | PR 코드 실행 | 아니요 |
 | [Zizmor](../.github/workflows/zizmor.yml) | PR·master push | PR 코드를 정적 분석 | 아니요 (게이트가 다시 검사) |
 | `bunfig.toml`, `pyproject.toml` | 로컬·CI 의존성 해석 | — | — |
@@ -31,6 +32,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 |---|---|
 | 비밀값 스캔 | PR 커밋 범위(merge base..head)에서 gitleaks가 비밀값을 찾음. PR이 올린 `.gitleaksignore`·`gitleaks:allow` 주석은 무시한다. |
 | 워크플로 보안 | `.github/`가 바뀐 PR에서 zizmor가 문제를 찾음. 예: SHA로 고정하지 않은 action, 템플릿 인젝션, 과도한 권한. |
+| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 PASS와 40자 SHA가 있는 TC 결과가 없음. |
 | 공급망 | lockfile에 새로 들어온 버전이 출시 7일 미만임. 레지스트리 밖 소스(git·URL·사설 레지스트리)를 씀. 레지스트리에 없는 패키지가 있음. cooldown 설정을 끄거나 7일 미만으로 줄임. 레지스트리 조회에 실패해도 실패로 처리한다. |
 
 ## 사람 확인 신호 — `harness/ack`
@@ -62,6 +64,45 @@ ruleset은 이와 별도로 마지막 push를 한 사람이 아닌 사람의 승
 - 게시 job: 모델 없이 JSON을 검증한다. PR에 없는 파일을 가리키는 지적은 버린다. 링크·멘션·HTML·비밀값 형태를 제거한 뒤 코멘트 하나를 갱신한다.
 - reward hacking도 함께 판단하게 한다. 테스트 입력 하드코딩처럼 diff 규칙으로 잡기 어려운 경우를 보완하기 위해서다.
 - `ai-review` environment에 `ANTHROPIC_API_KEY`가 없으면 건너뛴다.
+
+## 문서 추적성 참고
+
+결정적 검사의 "문서 추적성" 외에, 이번 PR이 건드린 OpenSpec 변경에 대해 다음을 게이트 코멘트의 **참고 (차단 안 함)**에 보여 준다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다.
+
+- OpenSpec의 REQ·AC가 `prd.md`에 없음
+- 시나리오의 `연결: FLOW-xx, SEC-xx`가 `experience.md`·`security-compliance.md`에 없음
+- archive된 변경의 AC에 `e2e-test.md` 테스트 시나리오가 없음
+- proposal에 `요구사항`·`담당` 줄이 없음, ID 없는 Requirement·Scenario
+- 이번 PR에서 바뀌지 않은 `완료` 주장 중 근거가 없는 것
+
+## 시험 결과 수집
+
+`test-backend`는 pytest JUnit 결과(`junit-backend`), Playwright는 JSON 결과(`playwright-results`)를 artifact로 30일 보관한다. 테스트 이름에 TC ID를 달면(pytest `test_tc_01_…`, Playwright `test("TC-01 …")`) 다음 명령이 `e2e-test.md` 실행 결과 표의 행을 출력한다.
+
+```bash
+python3 scripts/harness/collect_evidence.py --sha <PR head의 40자 SHA>
+```
+
+- TC마다 실패가 하나라도 있으면 FAIL, 통과가 있으면 PASS, 모두 건너뛰었으면 SKIP이다. 플래키는 FAIL로 본다(CI가 `--fail-on-flaky-tests`).
+- 실행 중이거나 결과 파일이 없으면 경고만 내고 행을 만들지 않는다. 출력된 행만 그대로 옮기고, 나머지는 `미검증`으로 둔다.
+
+## 제출 점검
+
+Actions → **Submission Check** → Run workflow에서 제출할 40자 SHA를 넣는다(비우면 브랜치 최신 커밋). 로컬에서는 `python3 -I scripts/harness/submission_check.py --sha <SHA> --github owner/repo`로 같은 결과를 본다.
+
+| 항목 | ❌ (제출 전 수정) | ⚠️ (확인 필요) |
+|---|---|---|
+| 소스 SHA | 40자가 아니거나 저장소에 없음 | |
+| 문서 8개 | 없는 문서가 있음 | |
+| 문서 작성 | | 표가 템플릿 그대로인 문서 |
+| README 연결 | | README(또는 `docs/README.md`)에서 닿지 않는 문서 |
+| 필수 REQ 근거 | `완료`인데 PASS·SHA 근거 없음 | 필수 REQ 미완료 |
+| 시험 결과 | | SHA가 있는 실행 결과가 없음 |
+| development.md 기록 | | archive된 변경의 기록 누락 |
+| OpenSpec | | archive 안 된 변경 |
+| 보안 | | `docs/security-policy.md` 없음, 미검증 항목 |
+| CI 검사 | 성공이 아닌 검사 | 검사 없음 |
+| Issue | | 열린 openspec Issue |
 
 ## OpenSpec Issue 동기화
 

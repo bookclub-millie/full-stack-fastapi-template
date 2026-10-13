@@ -26,6 +26,9 @@ import lockfiles
 import registry
 import report
 import signals
+import traceability
+
+import openspec
 
 MIN_RELEASE_AGE = timedelta(days=7)
 YOUNG_PACKAGE_AGE = timedelta(days=30)
@@ -252,6 +255,55 @@ def check_supply_chain(
     return _check("supply-chain", title, status, failures), young
 
 
+def check_docs(
+    git: Git, head: str, changes: list[signals.FileChange]
+) -> tuple[dict, list[dict]]:
+    """OpenSpec ↔ docs traceability (ADR-001): (check, notes)."""
+    prefix = f"{openspec.CHANGES_DIR}/"
+    archived: set[str] = set()
+    touched: set[str] = set()
+    for change in changes:
+        for path in filter(None, (change.path, change.old_path)):
+            if not path.startswith(prefix):
+                continue
+            parts = path[len(prefix) :].split("/")
+            if parts[0] == "archive" and len(parts) >= 3:
+                change_id = openspec.ARCHIVE_PREFIX.sub("", parts[1])
+                touched.add(change_id)
+                if path == change.path and change.status in "AR":
+                    archived.add(change_id)
+            elif parts[0] != "archive" and len(parts) >= 2:
+                touched.add(parts[0])
+
+    listed = git.run("ls-tree", "-r", "--name-only", head, "--", openspec.CHANGES_DIR)
+    files = {
+        path: text
+        for path in listed.splitlines()
+        if path.endswith(".md") and (text := git.show(head, path)) is not None
+    }
+    docs = {
+        path: git.show(head, path)
+        for path in (
+            traceability.PRD,
+            traceability.E2E,
+            traceability.DEV,
+            traceability.EXPERIENCE,
+            traceability.SECURITY,
+        )
+    }
+    changed = {c.path for c in changes}
+    failures, notes = traceability.check(
+        docs,
+        openspec.changes_from_files(files),
+        archived=archived,
+        touched=touched,
+        claims_changed=bool(changed & {traceability.PRD, traceability.E2E}),
+    )
+    title = "문서 추적성 (archive 기록·근거 없는 완료)"
+    check = _check("docs", title, "fail" if failures else "pass", failures)
+    return check, [{"title": t, "items": items} for t, items in notes.items()]
+
+
 def analyze(
     repo: str,
     base: str,
@@ -276,6 +328,8 @@ def analyze(
         check_workflows(zizmor_exit, zizmor_log),
         supply_chain,
     ]
+    docs_check, notes = check_docs(git, head, changes)
+    checks.append(docs_check)
 
     found = signals.collect_signals(changes)
     if young:
@@ -290,6 +344,7 @@ def analyze(
         "signals": [{"id": s.id, "title": s.title, "items": s.items} for s in found],
         "deterministic_failed": any(c["status"] == "fail" for c in checks),
         "needs_ack": bool(found),
+        "notes": notes,
     }
 
 

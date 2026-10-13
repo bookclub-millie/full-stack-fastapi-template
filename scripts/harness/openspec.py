@@ -137,39 +137,56 @@ def _read(path: Path) -> str | None:
         return None
 
 
-def _load(root: Path, directory: Path, change_id: str, archived: bool) -> Change | None:
-    proposal = _read(directory / "proposal.md")
-    if proposal is None:
-        return None
-    requirements: list[Requirement] = []
-    for spec in sorted((directory / "specs").rglob("spec.md")):
-        requirements.extend(parse_spec(_read(spec) or ""))
-    return Change(
-        id=change_id,
-        path=directory.relative_to(root).as_posix(),
-        archived=archived,
-        proposal=parse_proposal(proposal),
-        requirements=requirements,
-        tasks=parse_tasks(_read(directory / "tasks.md")),
-    )
+def changes_from_files(files: dict[str, str]) -> list[Change]:
+    """Changes from repository-relative path -> text (only openspec/changes/** is used).
+
+    Active changes come first, then archived ones; a change needs a proposal.md.
+    """
+    prefix = f"{CHANGES_DIR}/"
+    directories: dict[str, tuple[str, bool]] = {}
+    for path in files:
+        if not path.startswith(prefix):
+            continue
+        parts = path[len(prefix) :].split("/")
+        if parts[0] == "archive" and len(parts) >= 3:
+            directories[f"{prefix}archive/{parts[1]}"] = (
+                ARCHIVE_PREFIX.sub("", parts[1]),
+                True,
+            )
+        elif parts[0] != "archive" and len(parts) >= 2:
+            directories[f"{prefix}{parts[0]}"] = (parts[0], False)
+
+    changes: list[Change] = []
+    for directory, (change_id, archived) in sorted(
+        directories.items(), key=lambda kv: (kv[1][1], kv[0])
+    ):
+        proposal = files.get(f"{directory}/proposal.md")
+        if proposal is None:
+            continue
+        specs = sorted(
+            p
+            for p in files
+            if p.startswith(f"{directory}/specs/") and p.endswith("/spec.md")
+        )
+        changes.append(
+            Change(
+                id=change_id,
+                path=directory,
+                archived=archived,
+                proposal=parse_proposal(proposal),
+                requirements=[r for spec in specs for r in parse_spec(files[spec])],
+                tasks=parse_tasks(files.get(f"{directory}/tasks.md")),
+            )
+        )
+    return changes
 
 
 def load_changes(root: Path) -> list[Change]:
-    """Active and archived changes that have a proposal.md."""
+    """Active and archived changes in a checkout."""
     base = root / CHANGES_DIR
-    changes: list[Change] = []
-    if not base.is_dir():
-        return changes
-    for directory in sorted(
-        p for p in base.iterdir() if p.is_dir() and p.name != "archive"
-    ):
-        if change := _load(root, directory, directory.name, archived=False):
-            changes.append(change)
-    archive = base / "archive"
-    if archive.is_dir():
-        for directory in sorted(p for p in archive.iterdir() if p.is_dir()):
-            if change := _load(
-                root, directory, ARCHIVE_PREFIX.sub("", directory.name), archived=True
-            ):
-                changes.append(change)
-    return changes
+    files: dict[str, str] = {}
+    if base.is_dir():
+        for path in base.rglob("*.md"):
+            if (text := _read(path)) is not None:
+                files[path.relative_to(root).as_posix()] = text
+    return changes_from_files(files)
