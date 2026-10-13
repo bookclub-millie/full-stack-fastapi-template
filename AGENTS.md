@@ -22,7 +22,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)가 이 저장소에서 작업할 
 ## OpenSpec과 문서·Issue
 
 - 기능·동작 변경은 OpenSpec으로 시작한다(Claude Code `/opsx:propose`, Codex `$openspec-propose`). 산출물 형식과 ID 규칙은 `openspec/config.yaml`을 따른다.
-- 제안(spec) PR을 먼저 머지한다. 머지되면 개발 작업 Issue가 자동으로 만들어지고, archive가 머지되면 근거와 함께 닫힌다. Issue를 손으로 만들거나 닫지 않는다.
+- 제안(spec) PR을 먼저 머지한다. 머지되면 개발 작업 Issue가 자동으로 만들어지고, archive가 머지되면 근거와 함께 닫힌다. Issue를 손으로 만들거나 닫지 않는다(OpenSpec 밖의 작업만 "개발 작업" Issue 양식으로 만든다).
 - 구현을 마치는 archive PR에 문서 결과와 `docs/development.md` 기록을 함께 넣는다.
 - 시험 결과는 `scripts/harness/collect_evidence.py`가 출력한 행만 옮긴다. 출력에 없는 시험은 `미검증`으로 두고, 실행하지 않은 시험을 PASS·완료로 쓰지 않는다.
 - 테스트 이름의 TC ID는 `docs/e2e-test.md` 테스트 시나리오와 이어져야 한다. push 전에 `python3 -I scripts/harness/tc_check.py`로 확인한다(prek 훅 `tc-check`가 같은 검사를 한다).

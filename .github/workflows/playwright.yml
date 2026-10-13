@@ -30,6 +30,7 @@ jobs:
     # For pull requests it's not necessary to checkout the code but for the main branch it is
     - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
       id: filter
+      if: github.event_name != 'workflow_dispatch'
       with:
         filters: |
           changed:
@@ -45,7 +46,8 @@ jobs:
   test-playwright:
     needs:
       - changes
-    if: ${{ needs.changes.outputs.changed == 'true' }}
+    # A manual run (scripts/harness/run_evidence.py) always tests, whatever changed.
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.changed == 'true' }}
     timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
@@ -97,7 +99,7 @@ jobs:
       - test-playwright
       - changes
     # Merge reports after playwright-tests, even if some shards have failed
-    if: ${{ !cancelled() && needs.changes.outputs.changed == 'true' }}
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.changed == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

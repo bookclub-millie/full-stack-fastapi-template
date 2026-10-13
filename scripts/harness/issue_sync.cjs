@@ -69,12 +69,27 @@ function withAutoEvidence(evidence, lines) {
   return `${own.join('\n').trimEnd()}\n${block}\n`
 }
 
+// Check states that may still turn into success.
+const UNFINISHED = new Set([
+  'missing',
+  'queued',
+  'requested',
+  'waiting',
+  'pending',
+  'in_progress'
+])
+
 module.exports = async function syncIssues({
   github,
   context,
   core,
   plan,
-  requiredChecks
+  requiredChecks,
+  // Right after an archive is merged its PR's checks may still be running; wait
+  // for them instead of leaving the Issue for the next scheduled run.
+  waitForChecksMs = 0,
+  pollMs = 30000,
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 }) {
   const { owner, repo } = context.repo
   const repoUrl = `${context.serverUrl}/${owner}/${repo}`
@@ -251,7 +266,17 @@ module.exports = async function syncIssues({
     }
     const { managed, evidence } = splitBody(issue.body)
     const pr = await mergedPullFor(change.archive_commit)
-    const results = await checkResults(pr ? pr.head.sha : change.archive_commit)
+    const ref = pr ? pr.head.sha : change.archive_commit
+    let results = await checkResults(ref)
+    for (
+      let waited = 0;
+      waited < waitForChecksMs &&
+      results.some(r => UNFINISHED.has(r.conclusion));
+      waited += pollMs
+    ) {
+      await sleep(pollMs)
+      results = await checkResults(ref)
+    }
     const passed = results.every(r => r.conclusion === 'success')
     const auto = [
       `커밋 주소: ${repoUrl}/commit/${change.archive_commit}`,

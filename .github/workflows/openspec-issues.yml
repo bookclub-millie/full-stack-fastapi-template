@@ -11,8 +11,8 @@ on:
     paths:
       - openspec/**
   schedule:
-    # Daily re-check: retries completions whose required checks had not finished.
-    - cron: "23 1 * * *"
+    # Hourly re-check: retries completions whose required checks had not finished.
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -24,7 +24,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     permissions:
       contents: read
       issues: write # create, update and close OpenSpec Issues
@@ -48,6 +48,8 @@ jobs:
         env:
           PLAN: ${{ runner.temp }}/openspec-issues.json
           REQUIRED_CHECKS: test-backend,test-frontend,alls-green-playwright
+          # After an archive merge, wait up to 10 minutes for its PR's checks.
+          WAIT_FOR_CHECKS_MS: ${{ github.event_name == 'push' && '600000' || '0' }}
         with:
           script: |
             const fs = require('fs');
@@ -55,5 +57,6 @@ jobs:
             const plan = JSON.parse(fs.readFileSync(process.env.PLAN, 'utf8'));
             const summary = await syncIssues({
               github, context, core, plan, requiredChecks: process.env.REQUIRED_CHECKS.split(','),
+              waitForChecksMs: Number(process.env.WAIT_FOR_CHECKS_MS),
             });
             await core.summary.addHeading('OpenSpec Issues').addCodeBlock(JSON.stringify(summary, null, 2), 'json').write();

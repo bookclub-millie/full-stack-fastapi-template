@@ -247,6 +247,41 @@ test('archived change with a failing or missing check stays open with one pendin
   )
 })
 
+test('archive sync waits for checks still running, then completes', async () => {
+  const checks = {
+    a1: [
+      { id: 1, name: 'test-backend', status: 'in_progress', conclusion: null }
+    ]
+  }
+  const { github, state } = fakeGitHub({ checks })
+  let slept = 0
+  await run(github, [change({ archived: true, archive_commit: 'a1' })], {
+    waitForChecksMs: 60000,
+    pollMs: 30000,
+    sleep: async () => {
+      slept += 1
+      if (slept === 2) checks.a1 = passing()
+    }
+  })
+  assert.equal(slept, 2)
+  assert.equal(state.issues[0].state, 'closed')
+  assert.equal(state.issues[0].state_reason, 'completed')
+})
+
+test('archive sync gives up waiting and leaves the Issue pending', async () => {
+  const { github, state } = fakeGitHub({ checks: {} })
+  let slept = 0
+  await run(github, [change({ archived: true, archive_commit: 'a1' })], {
+    waitForChecksMs: 60000,
+    pollMs: 30000,
+    sleep: async () => {
+      slept += 1
+    }
+  })
+  assert.equal(slept, 2)
+  assert.equal(state.issues[0].state, 'open')
+})
+
 test('change created and archived in one merge gets an Issue that is completed', async () => {
   const { github, state } = fakeGitHub({ checks: { a1: passing() } })
   const summary = await run(github, [
