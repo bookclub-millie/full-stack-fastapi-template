@@ -17,6 +17,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 | [Test Frontend](../.github/workflows/test-frontend.yml) | PR·master push | PR 코드 실행, 비밀값 없음 | `test-frontend` |
 | [Test Backend](../.github/workflows/test-backend.yml) | PR·master push | PR 코드 실행, 비밀값 없음 | `test-backend` |
 | [AI Review](../.github/workflows/ai-review.yml) | 같은 저장소의 사람 PR | 모델 job은 읽기 전용, 게시 job은 모델 없음 | 아니요 |
+| [OpenSpec Issues](../.github/workflows/openspec-issues.yml) | master push(`openspec/**`)·매일·수동 | 기본 브랜치 코드, Issue 쓰기 권한 | 아니요 |
 | [Test Harness](../.github/workflows/test-harness.yml) | `scripts/harness/` 변경 | PR 코드 실행 | 아니요 |
 | [Zizmor](../.github/workflows/zizmor.yml) | PR·master push | PR 코드를 정적 분석 | 아니요 (게이트가 다시 검사) |
 | `bunfig.toml`, `pyproject.toml` | 로컬·CI 의존성 해석 | — | — |
@@ -61,6 +62,24 @@ ruleset은 이와 별도로 마지막 push를 한 사람이 아닌 사람의 승
 - 게시 job: 모델 없이 JSON을 검증한다. PR에 없는 파일을 가리키는 지적은 버린다. 링크·멘션·HTML·비밀값 형태를 제거한 뒤 코멘트 하나를 갱신한다.
 - reward hacking도 함께 판단하게 한다. 테스트 입력 하드코딩처럼 diff 규칙으로 잡기 어려운 경우를 보완하기 위해서다.
 - `ai-review` environment에 `ANTHROPIC_API_KEY`가 없으면 건너뛴다.
+
+## OpenSpec Issue 동기화
+
+OpenSpec 변경 하나를 개발 작업 Issue 하나로 맞춘다([ADR-001](adr/001-openspec-docs-traceability.md)).
+
+| OpenSpec 상태 (master 기준) | Issue 처리 |
+|---|---|
+| 제안이 머지됨 | `[REQ-xx] 기능 이름` Issue를 만든다. 목적·완료 조건(AC)·담당자·연결 문서를 채우고 `openspec` 라벨을 단다. |
+| 제안이 바뀜 | 열린 Issue의 자동 구역만 갱신한다. 사람이 체크한 항목과 근거 섹션은 그대로 둔다. |
+| archive가 머지됨 | 근거(커밋, PR, `test-backend`·`test-frontend`·`alls-green-playwright` 결과)를 적는다. 모두 success면 Close as completed로 닫고, 아니면 보류 코멘트를 남기고 매일 다시 확인한다. |
+| archive 없이 삭제됨 | 사유를 남기고 Close as not planned로 닫는다. 한 번에 6건 이상이면 닫지 않고 경고만 낸다. |
+| 사람이 닫음 | 다시 열지 않는다. |
+
+- Issue는 이 워크플로가 만든 것 중 `openspec` 라벨과 본문 첫 줄의 `<!-- openspec-change: <id> -->`가 있는 것만 인정한다. 라벨이나 이 줄을 지우면 새 Issue가 생긴다. 다른 사람이 같은 줄을 넣어 만든 Issue는 무시한다.
+- 같은 변경에 열린 Issue가 둘 이상이면 번호가 가장 작은 것만 남기고 나머지는 중복으로 not planned 처리한다. completed로 닫힌 변경을 다시 제안하면 새 Issue를 만든다.
+- 근거 섹션에서 자동으로 채우는 부분은 `<!-- openspec-sync: evidence -->` 블록뿐이다. 그 위아래에 직접 쓴 내용은 그대로 둔다.
+- Issues가 꺼진 저장소(이 템플릿)에서는 아무것도 하지 않는다.
+- 계획은 `scripts/harness/issue_plan.py`(토큰 없음), 반영은 `scripts/harness/issue_sync.cjs`가 한다.
 
 ## 출시 7일 cooldown과 예외
 

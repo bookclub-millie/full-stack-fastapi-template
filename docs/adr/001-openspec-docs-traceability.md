@@ -51,7 +51,7 @@ REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. �
   | 담당자 / 연결 문서 | `담당`(Assignee 지정, 없으면 PR 작성자), `docs/prd.md`의 REQ, OpenSpec 경로 |
   | 구현·검증 근거 | archive 때 커밋, PR, 필수 검사 결과와 실행 링크, `development.md` 기록 위치 |
 
-- 식별: 본문 첫 줄의 `<!-- openspec-change: <id> -->`와 `openspec` 라벨.
+- 식별: 이 워크플로(github-actions)가 만들고 `openspec` 라벨과 본문 첫 줄의 `<!-- openspec-change: <id> -->`가 있는 Issue만 인정한다. 담당자는 멘션하지 않고 Assignee로만 지정한다.
 - 규칙:
 
   | 저장소 상태 | Issue 처리 |
