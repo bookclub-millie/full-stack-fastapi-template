@@ -17,8 +17,6 @@
     "build-storybook": "bun run --filter frontend build-storybook",
     "test:unit": "bun run --filter frontend test:unit",
     "test:storybook": "bun run --filter frontend test:storybook",
-    "test:visual": "bun run --filter frontend test:visual",
-    "test:visual:update": "bun run --filter frontend test:visual:update",
     "check:deps": "knip",
     "test": "bun run --filter frontend test",
     "test:ui": "bun run --filter frontend test:ui",

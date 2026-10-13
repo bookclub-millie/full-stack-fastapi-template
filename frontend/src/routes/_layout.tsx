@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 
-import { Footer } from '@/components/Common/footer'
-import AppSidebar from '@/components/Sidebar/app-sidebar'
+import { Footer } from '@/components/common/footer'
+import AppSidebar from '@/components/sidebar/app-sidebar'
 import {
   SidebarInset,
   SidebarProvider,

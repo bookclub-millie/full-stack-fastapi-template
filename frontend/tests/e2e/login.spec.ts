@@ -52,7 +52,7 @@ test('Log in with invalid password', async ({ page }) => {
   await page.getByRole('button', { name: '로그인' }).click()
 
   await expect(
-    page.getByText('이메일 또는 비밀번호가 올바르지 않습니다.')
+    page.getByText('이메일 또는 비밀번호를 확인해 주세요.')
   ).toBeVisible()
 })
 

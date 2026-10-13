@@ -23,7 +23,7 @@ const config: KnipConfig = {
       ],
       ignore: ['src/client/**'],
       playwright: {
-        config: ['playwright.config.ts', 'playwright.visual.config.ts']
+        config: ['playwright.config.ts']
       },
       vitest: {
         config: ['vitest.config.ts', '.storybook/vitest.config.ts']

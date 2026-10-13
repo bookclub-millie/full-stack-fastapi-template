@@ -77,7 +77,11 @@ test('Sign up with existing email', async ({ page }) => {
   await fillForm(page, fullName, email, password, password)
   await page.getByRole('button', { name: '회원가입' }).click()
 
-  await expect(page.getByText('이미 가입된 이메일 주소입니다.')).toBeVisible()
+  await expect(
+    page.getByText(
+      '이미 가입된 이메일이에요. 로그인하거나 다른 이메일을 입력해 주세요.'
+    )
+  ).toBeVisible()
 })
 
 test('Sign up with weak password', async ({ page }) => {

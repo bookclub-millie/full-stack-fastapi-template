@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-
-import ChangePassword from '@/components/UserSettings/change-password'
-import DeleteAccount from '@/components/UserSettings/delete-account'
-import UserInformation from '@/components/UserSettings/user-information'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import ChangePassword from '@/components/user-settings/change-password'
+import DeleteAccount from '@/components/user-settings/delete-account'
+import UserInformation from '@/components/user-settings/user-information'
 import useAuth from '@/hooks/use-auth'
 
 const tabsConfig = [

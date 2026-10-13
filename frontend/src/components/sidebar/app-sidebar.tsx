@@ -1,7 +1,7 @@
 import { Briefcase, Home, Users } from 'lucide-react'
 
-import { SidebarAppearance } from '@/components/Common/appearance'
-import { Logo } from '@/components/Common/logo'
+import { SidebarAppearance } from '@/components/common/appearance'
+import { Logo } from '@/components/common/logo'
 import {
   Sidebar,
   SidebarContent,

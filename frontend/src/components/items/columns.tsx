@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Check, Copy } from 'lucide-react'
 
 import type { ItemPublic } from '@/client'
-import type { DataTableFeatures } from '@/components/Common/data-table'
+import type { DataTableFeatures } from '@/components/common/data-table'
 import { Button } from '@/components/ui/button'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { cn } from '@/lib/utils'

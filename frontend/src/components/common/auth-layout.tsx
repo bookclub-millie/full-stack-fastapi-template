@@ -1,18 +1,8 @@
-import { useEffect } from 'react'
-
-import { useTheme } from '@/components/theme-provider'
-
 interface AuthLayoutProps {
   children: React.ReactNode
 }
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
-  const { theme, setTheme } = useTheme()
-
-  useEffect(() => {
-    if (theme !== 'light') setTheme('light')
-  }, [theme, setTheme])
-
   return (
     <div
       lang="ko"

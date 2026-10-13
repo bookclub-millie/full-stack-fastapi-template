@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import type { Body_login_login_access_token as AccessToken } from '@/client'
-import { AuthLayout } from '@/components/Common/auth-layout'
+import { AuthLayout } from '@/components/common/auth-layout'
 import {
   Form,
   FormControl,

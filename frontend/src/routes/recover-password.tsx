@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { LoginService } from '@/client'
-import { AuthLayout } from '@/components/Common/auth-layout'
+import { AuthLayout } from '@/components/common/auth-layout'
 import {
   Form,
   FormControl,
@@ -73,7 +73,8 @@ const RecoverPassword = () => {
               비밀번호가 기억나지 않나요?
             </h1>
             <p className="break-keep text-sm text-muted-foreground sm:text-base">
-              괜찮아요. 가입한 이메일을 알려주시면 새 비밀번호를 만들 수 있는 링크를 보내드릴게요.
+              괜찮아요. 가입한 이메일을 알려주시면 새 비밀번호를 만들 수 있는
+              링크를 보내드릴게요.
             </p>
           </div>
           <div className="grid gap-6">
