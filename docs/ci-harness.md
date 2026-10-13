@@ -32,7 +32,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 |---|---|
 | 비밀값 스캔 | PR 커밋 범위(merge base..head)에서 gitleaks가 비밀값을 찾음. PR이 올린 `.gitleaksignore`·`gitleaks:allow` 주석은 무시한다. |
 | 워크플로 보안 | `.github/`가 바뀐 PR에서 zizmor가 문제를 찾음. 예: SHA로 고정하지 않은 action, 템플릿 인젝션, 과도한 권한. |
-| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 연결된 TC 중 **가장 최근 결과**가 PASS이고 저장소에 실제로 있는 커밋 SHA(40자)를 가진 것이 없음(종류가 `수동`인 TC는 근거로 세지 않음). PR이 바꾼 테스트 파일에 수집되지 않는 TC 표기(`TC01`, `test.describe`·`test.fail` 제목, 결과가 수집되지 않는 위치 등)가 있음. PR이 바꾼 테스트(또는 PR이 `e2e-test.md`를 바꿨다면 모든 테스트)의 TC가 `e2e-test.md` 테스트 시나리오에 없음. PR이 archive한 변경의 AC에 TC 시나리오 행이 없거나, `수동`이 아닌 TC에 그 이름의 실행되는 테스트(`skip`·`fixme`·`xfail` 제외)가 없거나, AC ID가 없는 Scenario가 있음. tasks.md 테스트 작업 줄(`TC-07 … <파일>::<테스트>`)에 적은 파일에 그 TC 테스트가 없음. |
+| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 연결된 TC 중 **가장 최근 결과**가 PASS이고 저장소에 실제로 있는 커밋 SHA(40자)를 가진 것이 없음(종류가 `수동`인 TC는 근거로 세지 않음). PR이 바꾼 테스트 파일에 수집되지 않는 TC 표기(`TC01`, `test.describe`·`test.fail` 제목, 결과가 수집되지 않는 위치 등)가 있음. PR이 바꾼 테스트(또는 PR이 `e2e-test.md`를 바꿨다면 모든 테스트)의 TC가 `e2e-test.md` 테스트 시나리오에 없음. PR이 archive한 변경의 AC에 TC 시나리오 행이 없거나, `수동`이 아닌 TC에 그 이름의 실행되는 테스트(`skip`·`fixme`·`xfail` 제외)가 없거나, AC ID가 없는 Scenario가 있음. tasks.md 테스트 작업 줄(`TC-07 … <파일>::<테스트>`)에 적은 파일에 그 TC 테스트가 없음. 번호 중복: PR이 새로 정의한 REQ·AC·TC를 기준 브랜치의 다른 변경이 이미 차지했거나, PR이 바꾼 문서 표에 같은 ID 행이 새로 생기거나 기존 행이 사라짐(새 번호는 `python3 -I scripts/harness/next_ids.py --github`). |
 | 공급망 | lockfile에 새로 들어온 버전이 출시 7일 미만임. 레지스트리 밖 소스(git·URL·사설 레지스트리)를 씀. 레지스트리에 없는 패키지가 있음. cooldown 설정을 끄거나 7일 미만으로 줄임. 레지스트리 조회에 실패해도 실패로 처리한다. |
 
 ## 사람 확인 신호 — `harness/ack`
@@ -116,6 +116,7 @@ push와 PR은 바뀐 파일에 필요한 시험만 돌리므로, 문서만 바�
 | development.md 기록 | | archive된 변경의 기록 누락 |
 | OpenSpec | | archive 안 된 변경 |
 | TC 연결 | | 수집되지 않는 TC 표기, 시나리오에 없는 TC, archive된 변경의 AC에 TC 테스트 없음 |
+| ID 중복 | 문서 표의 중복 행, 둘 이상의 변경이 차지한 같은 번호 | |
 | 보안 | | `docs/security-policy.md` 없음, 미검증 항목 |
 | CI 검사 | 실패한 검사, `harness/checks`·`harness/ack` 실패 | 진행 중이거나 결과 없음(이 점검 job 자체는 제외) |
 | Issue | | 열린 openspec Issue |
@@ -168,6 +169,7 @@ gh secret set ANTHROPIC_API_KEY --env ai-review --repo owner/repo   # AI 리뷰�
   - 승인 1건이 필요하고, 마지막 push는 다른 사람이 승인해야 한다.
   - push가 있으면 기존 승인을 무효로 한다.
   - 필수 체크는 `harness/checks`, `harness/ack`, `test-backend`, `test-frontend`다.
+  - 머지 전에 브랜치가 최신 기준 브랜치를 반영해야 한다(`strict_required_status_checks_policy`). 먼저 머지된 제안과 번호가 겹치면 갱신된 브랜치에서 게이트가 잡는다. 대신 PR이 머지될 때마다 열린 PR은 갱신이 필요하고, 그 push로 승인과 `harness-ack`를 다시 받아야 할 수 있다.
   - force push와 브랜치 삭제를 금지한다.
   - 우회 권한자는 두지 않는다.
 

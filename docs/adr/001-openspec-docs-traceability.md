@@ -2,7 +2,7 @@
 
 - 상태: 채택
 - 날짜: 2026-10-14
-- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정), #4·#5·#6(구현), #10(TC 이름 검사), vitest 수집 추가(2026-10-14)
+- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정), #4·#5·#6(구현), #10(TC 이름 검사), #11(vitest 수집), 번호 선점·중복 검사(2026-10-14)
 
 ## 맥락
 
@@ -26,7 +26,17 @@ OpenSpec을 작업 단위의 원천으로 두고, 문서(`docs/*.md`, `README.md
 | 테스트 이름 | pytest `test_tc_01_...`(`backend/tests`), Playwright `test("TC-01 ...")`(`frontend/tests/e2e`), vitest `it("TC-01 ...")`(`frontend/src/**/*.test.ts`). 테스트 하나에 TC 하나. `TC-1`과 `TC-01`은 같은 TC | `e2e-test.md` TC와 실행 결과 |
 | tasks.md 테스트 작업 | `- [ ] 2.3 TC-07 (AC-07) <파일>::<테스트 이름>`. 파일 위치는 spec PR에서 리뷰한다 | 구현할 테스트, archive 때 실제 위치와 대조 |
 
-REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. 새 번호는 `prd.md`·`experience.md`·`e2e-test.md`에 있는 가장 큰 번호 다음을 쓴다.
+REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. 여러 사람이 동시에 제안해도 겹치지 않도록 다음을 함께 쓴다.
+
+- **번호 도구:** 새 번호는 `scripts/harness/next_ids.py --github`가 출력한 번호를 쓴다. 기준 브랜치(fetch 후)와 작업 트리의 문서 표·OpenSpec 파일, 열린 PR이 추가하는 줄을 모두 본다.
+- **선점:** 번호는 그 번호를 정의한 OpenSpec 변경이 차지한다. ADDED Requirements의 REQ·AC, MODIFIED 아래 새 시나리오의 AC, tasks.md 테스트 작업 줄의 TC가 대상이다. 제안 PR은 구현 전에 머지하므로, 번호가 테스트 이름과 코드에 퍼지기 전에 master에 올라간다. 문서 표의 행은 지금처럼 apply 단계에서 추가한다. OpenSpec propose 스킬은 계획 산출물만 쓰기 때문이다.
+- **검사 (Harness Gate):**
+  - PR이 새로 정의한 번호를 기준 브랜치의 다른 변경이 이미 차지하고 있으면 실패한다. 비교 대상은 merge base가 아니라 기준 브랜치의 최신 커밋이라서, PR이 갈라진 뒤 머지된 제안도 본다.
+  - 문서 표에 같은 ID 행이 새로 둘 이상 생기거나, 기준 브랜치에 있던 행이 사라지면 실패한다. 충돌을 풀다 다른 사람의 행을 지우는 경우를 막기 위해서다.
+  - 메시지에는 다음 빈 번호를 보여 준다.
+- **ruleset:** "최신 기준 브랜치 반영 필수"(`strict_required_status_checks_policy`)를 켜, 먼저 머지된 제안이 있으면 나중 PR이 브랜치를 갱신하고 게이트가 다시 돈다.
+
+MODIFIED는 기존 요구사항을 고치는 것이므로 같은 REQ·AC가 여러 변경에 나와도 중복이 아니다. 문서 표에만 있고 어느 변경도 정의하지 않은 번호(PRD를 먼저 쓴 경우)를 새로 정의하면 실패하지 않고 참고로 알린다.
 
 ### 2. 단계별 문서 갱신 (`openspec/config.yaml` 규칙·지침, `AGENTS.md`)
 
@@ -74,6 +84,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 | 실패 (`harness/checks`) | PR이 바꾼 테스트 파일에 수집되지 않는 TC 표기가 있음(`TC01`·`testTC01`, TC 여러 개, `test.describe`·`test.step` 제목, 결과가 수집되지 않는 위치) |
 | 실패 (`harness/checks`) | PR이 바꾼 테스트의 TC가 `e2e-test.md` 테스트 시나리오에 없음. PR이 `e2e-test.md`를 바꿨다면 모든 테스트가 대상 |
 | 실패 (`harness/checks`) | PR이 archive한 변경의 AC에 TC 시나리오 행이 없거나, 종류가 `수동`이 아닌 TC에 그 이름의 테스트가 없음. tasks.md의 테스트 작업 줄(`TC-07 … <파일>::<테스트>`)에 적은 파일에 그 TC 테스트가 없음 |
+| 실패 (`harness/checks`) | 번호 중복: PR이 건드린 변경이 새로 정의한 REQ·AC·TC를 기준 브랜치(최신 커밋)의 다른 변경이 이미 차지함. 이 PR의 두 변경이 같은 번호를 정의함. PR이 바꾼 문서 표에 같은 ID 행이 새로 둘 이상 생기거나 기준 브랜치에 있던 행이 사라짐. PR이 archive한 변경의 번호가 문서 표에 없음 |
 | 참고 (차단 안 함) | 이번 PR이 건드린 변경에 대해: OpenSpec의 REQ·AC가 `prd.md`에 없음, 시나리오의 `연결` ID(FLOW·SEC)가 문서에 없음, 이미 archive된 변경의 AC ↔ TC ↔ 테스트 누락, proposal의 `요구사항`·`담당` 누락. 테스트·`e2e-test.md`를 바꾼 PR에서: 테스트가 없는 TC 시나리오, 수동 TC만 있는 AC, 바뀌지 않은 테스트의 TC 문제. 이번 PR에서 바뀌지 않은 근거 없는 완료 |
 
 참고 항목은 게이트 코멘트에만 보인다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다. 예외는 두 가지다. TC를 단 테스트는 시나리오 행과 같은 커밋에 있어야 한다(테스트를 쓰는 순간 TC 번호가 정해져 있으므로). archive는 Issue를 completed로 닫으므로, archive하는 PR에서는 AC → TC → 실행되는 테스트가 끝까지 이어져야 한다. `skip`·`fixme`·`xfail`인 테스트는 실행되는 테스트로 세지 않는다.
@@ -97,6 +108,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 - `openspec` Issue의 열림·닫힘 수
 - `docs/security-policy.md` 존재 여부
 - TC 연결(로컬 TC 검사와 같은 기준)
+- ID 중복(문서 표의 중복 행, 둘 이상의 변경이 차지한 같은 번호)
 
 ## 선택 이유
 
@@ -116,6 +128,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 
 ## 결과와 제약
 
+- "최신 기준 브랜치 반영 필수" 때문에 PR이 하나 머지될 때마다 열린 PR은 브랜치를 갱신해야 하고, 갱신 push로 승인과 `harness-ack` 라벨이 풀려 다시 받아야 할 수 있다. 번호 충돌을 머지 전에 잡는 대가다. ruleset을 적용하기 전에는 동시에 열린 두 제안이 같은 번호로 연달아 머지될 수 있고, 이때는 Submission Check와 다음 게이트 실행이 알린다.
 - PR은 세 단계로 나눠 먼저 끝나는 것부터 머지한다.
   1. ID 규칙, 단계별 지침, AGENTS.md, 이 ADR
   2. Issue 동기화

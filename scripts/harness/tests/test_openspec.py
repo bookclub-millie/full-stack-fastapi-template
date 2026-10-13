@@ -95,6 +95,19 @@ class SpecTest(unittest.TestCase):
         self.assertIsNone(requirements[0].scenarios[0].id)
 
 
+class DeltaOperationTest(unittest.TestCase):
+    def test_modified_requirements_are_marked(self) -> None:
+        requirements = parse_spec(
+            "## ADDED Requirements\n### Requirement: REQ-04 새것\n#### Scenario: AC-09 a\n"
+            "## MODIFIED Requirements\n### Requirement: REQ-01 고침\n"
+            "## REMOVED Requirements\n### Requirement: REQ-02 지움\n"
+        )
+        self.assertEqual(
+            [(r.id, r.added) for r in requirements],
+            [("REQ-04", True), ("REQ-01", False)],
+        )
+
+
 class TasksTest(unittest.TestCase):
     def test_progress(self) -> None:
         self.assertEqual(parse_tasks(TASKS), (2, 3))
