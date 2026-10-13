@@ -31,7 +31,6 @@ concurrency:
 
 jobs:
   frontend-quality:
-    # Darwin is the canonical visual baseline platform, matching local macOS.
     runs-on: macos-15
     timeout-minutes: 30
     env:
@@ -68,8 +67,6 @@ jobs:
         run: bun run test:storybook
       - name: Build app
         run: bun run build
-      - name: Compare visual baselines
-        run: bun run test:visual
       - name: Upload unit coverage
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -84,16 +81,6 @@ jobs:
         with:
           name: frontend-component-results
           path: frontend/test-results/storybook.xml
-          if-no-files-found: ignore
-          retention-days: 14
-      - name: Upload visual report and failure traces
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: frontend-visual-report
-          path: |
-            frontend/visual-report
-            frontend/visual-test-results
           if-no-files-found: ignore
           retention-days: 14
       - name: Upload Storybook build

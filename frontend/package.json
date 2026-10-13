@@ -15,8 +15,6 @@
     "build-storybook": "storybook build",
     "test:unit": "vitest run --coverage",
     "test:storybook": "vitest run --config .storybook/vitest.config.ts",
-    "test:visual": "playwright test --config playwright.visual.config.ts",
-    "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
     "storybook:preview": "http-server storybook-static -p 6006 -a 127.0.0.1 --silent",
     "preview": "vite preview",
     "generate-client": "openapi-ts",

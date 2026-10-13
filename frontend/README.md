@@ -13,7 +13,7 @@ bun install
 bun run dev
 ```
 
-브라우저에서 <http://localhost:5173>을 엽니다. 개발 서버는 `Ctrl+C`로 종료합니다.
+개발 서버: <http://localhost:5173>
 
 로그인과 데이터 조회에는 백엔드와 PostgreSQL이 필요합니다. 설정·기동 방법은 [전체 개발 환경 안내](../development.md)를 참고합니다. 컴포넌트만 개발할 때는 백엔드 없이 Storybook을 사용할 수 있습니다.
 
@@ -47,8 +47,7 @@ frontend/
 │   ├── stories/         # 컴포넌트 사용 예시
 │   └── index.css        # 전역 스타일
 ├── tests/
-│   ├── e2e/            # 백엔드와 연결한 서비스 기능 검증
-│   └── visual/         # 컴포넌트 스크린샷 비교
+│   └── e2e/            # 백엔드와 연결한 서비스 기능 검증
 └── design.md            # 공통 디자인 원칙
 
 packages/
@@ -76,14 +75,14 @@ export const SaveAction = () => <Button>저장</Button>
 bun run storybook
 ```
 
-<http://localhost:6006>에서 컴포넌트를 확인합니다. 로그인·API·데이터베이스 없이 실행하며, 종료는 `Ctrl+C`입니다. 사용 예시는 `src/stories`에 작성합니다.
+Storybook: <http://localhost:6006> · 사용 예시: `src/stories`
 
 ## 코드 작성 규칙
 
 - 함수는 `const` 함수 표현식과 화살표 함수를 우선합니다. 동적 `this`가 필요하면 일반 함수 표현식을 사용합니다.
 - 파일명은 `auth-layout.tsx`, `use-auth.ts`처럼 케밥케이스로 작성합니다. 컴포넌트 이름은 PascalCase, 훅 이름은 camelCase를 사용합니다.
 - `__root.tsx`, `_layout.tsx`, `*.stories.tsx`, `*.spec.ts` 등 도구가 사용하는 파일 규칙은 유지합니다.
-- `const`는 초기화 전에 참조하지 않습니다. 페이지 컴포넌트를 참조하는 라우트 정의는 컴포넌트 뒤에 둡니다.
+- 페이지 컴포넌트를 참조하는 라우트 정의는 컴포넌트 뒤에 둡니다.
 - `src/client`와 `routeTree.gen.ts` 같은 생성 코드는 직접 수정하지 않습니다.
 
 포맷은 루트 [biome.json](../biome.json)으로 통일합니다. **2칸 들여쓰기·작은따옴표·후행 쉼표 없음·필요한 경우에만 세미콜론**을 사용하는 StandardJS 계열 스타일입니다. JSX 속성은 큰따옴표를 사용하며, StandardJS 린트 규칙 전체를 강제하지는 않습니다.
@@ -92,7 +91,7 @@ bun run storybook
 bun run format
 ```
 
-포맷과 import 정리만 적용합니다. 테스트·타입 검사·빌드·린트 규칙 검사는 실행하지 않습니다.
+포맷과 import 정리만 적용합니다.
 
 ## 빌드와 API 클라이언트
 
@@ -114,11 +113,9 @@ Docker 빌드에서도 `@kds/ui`를 찾을 수 있도록 저장소 루트와 `pa
 bash scripts/generate-client.sh
 ```
 
-생성 결과는 `src/client`에 반영됩니다. 생성 파일 대신 백엔드 스키마를 수정하고 다시 생성합니다.
+생성 결과: `src/client`
 
-## 검사와 테스트 — 필요할 때 별도 실행
-
-아래는 실행 방법 안내이며, 검증 완료 기록이 아닙니다.
+## 검사와 테스트
 
 | 명령 | 용도 |
 | --- | --- |
@@ -130,17 +127,12 @@ bash scripts/generate-client.sh
 | `bun run test:unit` | 단위 테스트와 지정된 파일의 커버리지 측정 |
 | `bun run test:storybook` | 컴포넌트 상호작용·접근성 검사 |
 | `bun run test` | 백엔드와 연결한 E2E 테스트 |
-| `bun run test:visual` | 기준 이미지와 컴포넌트 스크린샷 비교 |
 
 브라우저 테스트는 `frontend`에서 `bunx playwright install chromium`으로 브라우저를 준비합니다. E2E는 백엔드·DB 등 [개발 환경](../development.md)이 필요합니다.
 
-시각 비교 전에는 루트에서 `bun run build-storybook`으로 정적 Storybook을 만듭니다. 정적 빌드를 확인하려면 6006 포트의 개발용 Storybook을 먼저 종료합니다. 별도 서버를 사용할 때는 `STORYBOOK_BASE_URL`을 지정합니다. 웹폰트 로딩을 확인하고, 운영체제별 기준 이미지를 사용합니다. 기준 이미지는 `tests/visual/__screenshots__`에 보관하며, 의도적인 디자인 변경일 때만 `bun run test:visual:update`로 갱신하고 변경 이미지를 검토합니다.
-
 ### 생성 결과물
 
-`storybook-static`, `test-results`, `visual-test-results`, `playwright-report`, `visual-report`, `blob-report`, `coverage`는 빌드·테스트가 만드는 결과 폴더입니다. Git에서 제외되며 필요 없으면 삭제해도 됩니다. 관련 명령을 다시 실행하면 재생성됩니다.
-
-단, `tests/visual/__screenshots__`는 비교 기준으로 사용하는 소스이므로 결과물과 함께 삭제하지 않습니다.
+`storybook-static`, `test-results`, `playwright-report`, `blob-report`, `coverage`는 Git에서 제외되는 빌드·테스트 결과물로, 삭제해도 됩니다.
 
 ## 관련 문서와 출처
 
@@ -148,7 +140,7 @@ bash scripts/generate-client.sh
 - [전체 개발 환경](../development.md)
 - [프로젝트 문서](../docs/README.md)
 - 프로젝트 기반: [FastAPI Full Stack Template](https://github.com/fastapi/full-stack-fastapi-template)
-- 프론트엔드 도구 구성 참고: [Next.js Boilerplate](https://github.com/ixartz/Next-js-Boilerplate). Next.js로 전환하지 않고 React/Vite에 맞춰 적용했습니다.
+- 프론트엔드 도구 구성 참고: [Next.js Boilerplate](https://github.com/ixartz/Next-js-Boilerplate)
 - 일러스트: [Open Doodles](https://www.opendoodles.com/) · Pablo Stanley · [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
 - 글꼴 라이선스: [Pretendard SIL Open Font License](public/fonts/Pretendard-LICENSE.txt)
 - 프로젝트 라이선스: [LICENSE](../LICENSE)

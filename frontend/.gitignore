@@ -30,6 +30,4 @@ openapi.json
 /playwright/.auth/
 /storybook-static/
 /coverage/
-/visual-test-results/
-/visual-report/
 /.tanstack/

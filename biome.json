@@ -22,8 +22,6 @@
       "!frontend/public",
       "!frontend/storybook-static",
       "!frontend/coverage",
-      "!frontend/visual-test-results",
-      "!frontend/visual-report",
       "!frontend/test-results",
       "!frontend/blob-report",
       "!frontend/playwright-report",
