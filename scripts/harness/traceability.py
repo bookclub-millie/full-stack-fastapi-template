@@ -7,6 +7,7 @@ See docs/adr/001-openspec-docs-traceability.md, section 4.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from doctables import cell, filled, table
 
@@ -25,22 +26,35 @@ TC = re.compile(r"\bTC-\d+\b")
 MIN_DEVELOPMENT_CELLS = 4
 
 
-def _is_done(status: str) -> bool:
+def is_done(status: str) -> bool:
     return "완료" in status and "미완료" not in status
 
 
-def unsupported_completions(docs: dict[str, str | None]) -> list[str]:
-    """REQ rows marked 완료 without a PASS result that carries a full SHA."""
+def unsupported_completions(
+    docs: dict[str, str | None], sha_exists: Callable[[str], bool] | None = None
+) -> list[str]:
+    """REQ rows marked 완료 whose TCs have no latest PASS result with a real full SHA.
+
+    Rows of the 실행 결과 table are taken in order, so a later FAIL for a TC
+    replaces an earlier PASS. With sha_exists, the SHA must name a commit.
+    """
     scenarios = table(docs.get(E2E), "테스트 시나리오")
-    passed = {
-        tc
-        for row in table(docs.get(E2E), "실행 결과")
-        if "PASS" in cell(row, "상태").upper() and SHA40.search(cell(row, "소스 SHA"))
-        for tc in TC.findall(cell(row, "TC"))
-    }
+    latest: dict[str, dict[str, str]] = {}
+    for row in table(docs.get(E2E), "실행 결과"):
+        for tc in TC.findall(cell(row, "TC")):
+            latest[tc] = row
+    passed = set()
+    for tc, row in latest.items():
+        sha = SHA40.search(cell(row, "소스 SHA"))
+        if (
+            "PASS" in cell(row, "상태").upper()
+            and sha
+            and (sha_exists is None or sha_exists(sha.group()))
+        ):
+            passed.add(tc)
     problems = []
     for row in table(docs.get(PRD), "요구사항 추적표"):
-        if not _is_done(cell(row, "상태")):
+        if not is_done(cell(row, "상태")):
             continue
         for req in REQ.findall(cell(row, "REQ")):
             keys = {req, *AC.findall(cell(row, "AC"))}
@@ -54,7 +68,7 @@ def unsupported_completions(docs: dict[str, str | None]) -> list[str]:
             if not tcs & passed:
                 checked = ", ".join(sorted(tcs)) or "없음"
                 problems.append(
-                    f"{PRD}: {req}이 완료인데 e2e-test.md 실행 결과에 PASS와 40자 SHA가 있는 TC가 없습니다 "
+                    f"{PRD}: {req}이 완료인데 e2e-test.md 실행 결과에서 최신 결과가 PASS이고 실제 커밋 SHA(40자)가 있는 TC가 없습니다 "
                     f"(확인한 TC: {checked})"
                 )
     return problems
@@ -67,6 +81,7 @@ def check(
     archived: set[str],
     touched: set[str],
     claims_changed: bool,
+    sha_exists: Callable[[str], bool] | None = None,
 ) -> tuple[list[str], dict[str, list[str]]]:
     """Return (failures, notes).
 
@@ -89,7 +104,7 @@ def check(
                 f"(Issue 칸에 `#번호 ({change_id})`, {MIN_DEVELOPMENT_CELLS}칸 이상)"
             )
 
-    for problem in unsupported_completions(docs):
+    for problem in unsupported_completions(docs, sha_exists):
         if claims_changed:
             failures.append(problem)
         else:

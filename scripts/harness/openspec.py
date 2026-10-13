@@ -137,24 +137,31 @@ def _read(path: Path) -> str | None:
         return None
 
 
+def locate(path: str) -> tuple[str, str, bool] | None:
+    """(change directory, change id, archived) for a file inside openspec/changes."""
+    prefix = f"{CHANGES_DIR}/"
+    if not path.startswith(prefix):
+        return None
+    parts = path[len(prefix) :].split("/")
+    if parts[0] == "archive":
+        if len(parts) < 3:
+            return None
+        return f"{prefix}archive/{parts[1]}", ARCHIVE_PREFIX.sub("", parts[1]), True
+    if len(parts) < 2:
+        return None
+    return f"{prefix}{parts[0]}", parts[0], False
+
+
 def changes_from_files(files: dict[str, str]) -> list[Change]:
     """Changes from repository-relative path -> text (only openspec/changes/** is used).
 
     Active changes come first, then archived ones; a change needs a proposal.md.
     """
-    prefix = f"{CHANGES_DIR}/"
     directories: dict[str, tuple[str, bool]] = {}
     for path in files:
-        if not path.startswith(prefix):
-            continue
-        parts = path[len(prefix) :].split("/")
-        if parts[0] == "archive" and len(parts) >= 3:
-            directories[f"{prefix}archive/{parts[1]}"] = (
-                ARCHIVE_PREFIX.sub("", parts[1]),
-                True,
-            )
-        elif parts[0] != "archive" and len(parts) >= 2:
-            directories[f"{prefix}{parts[0]}"] = (parts[0], False)
+        if found := locate(path):
+            directory, change_id, archived = found
+            directories[directory] = (change_id, archived)
 
     changes: list[Change] = []
     for directory, (change_id, archived) in sorted(

@@ -3,8 +3,10 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from submission_check import FAIL, OK, WARN, Repo, evaluate
+import submission_check
+from submission_check import FAIL, OK, WARN, Repo, evaluate, evaluate_github
 
 GIT_ENV = {
     **os.environ,
@@ -75,7 +77,10 @@ class SubmissionCheckTest(unittest.TestCase):
         return {name: mark for name, mark, _ in evaluate(Repo(self.tmp.name), sha)}
 
     def test_complete_submission(self) -> None:
-        results = self.results(self.commit(self.docs()))
+        first = self.commit(self.docs(**{"docs/e2e-test.md": "## 실행 결과\n"}))
+        # Evidence must name a real commit: record the result of the first commit.
+        sha = self.commit({"docs/e2e-test.md": E2E_PASS.replace(SHA, first)})
+        results = self.results(sha)
         self.assertNotIn(FAIL, results.values())
         self.assertEqual(results["필수 REQ 근거"], OK)
         self.assertEqual(results["README 연결"], OK)
@@ -101,6 +106,89 @@ class SubmissionCheckTest(unittest.TestCase):
         results = self.results(self.commit(files))
         self.assertEqual(results["문서 작성"], WARN)
         self.assertEqual(results["OpenSpec"], WARN)
+
+    def test_docs_untouched_since_the_template_warn(self) -> None:
+        self.commit(self.docs())  # what "Use this template" copies
+        sha = self.commit(
+            {"docs/prd.md": PRD + "| REQ-02 | 목록 | 추가 | AC-02 | | | | 계획 |\n"}
+        )
+        detail = {
+            name: detail for name, _, detail in evaluate(Repo(self.tmp.name), sha)
+        }
+        self.assertIn("docs/arch.md", detail["문서 작성"])
+        self.assertNotIn("docs/prd.md", detail["문서 작성"])
+
+    def test_made_up_evidence_sha_fails(self) -> None:
+        results = self.results(
+            self.commit(self.docs())
+        )  # E2E_PASS uses a SHA that is not a commit
+        self.assertEqual(results["필수 REQ 근거"], FAIL)
+
+
+class EvaluateGithubTest(unittest.TestCase):
+    def run_with(self, runs: list[dict], statuses: list[dict]) -> tuple[str, str]:
+        def fake(*args: str) -> object:
+            url = args[-1]
+            if "/check-runs" in url:
+                return [{"check_runs": runs}]
+            if url.endswith("/status?per_page=100"):
+                return {"statuses": statuses}
+            return [[{"state": "closed", "state_reason": "completed"}]]
+
+        with mock.patch.object(submission_check, "_gh_json", fake):
+            items = evaluate_github("o/r", "a" * 40, frozenset({"check"}))
+        return items[0][1], items[0][2]
+
+    def test_own_job_is_ignored_and_running_checks_only_warn(self) -> None:
+        runs = [
+            {"id": 1, "name": "check", "status": "in_progress", "conclusion": None},
+            {
+                "id": 2,
+                "name": "test-backend",
+                "status": "completed",
+                "conclusion": "success",
+            },
+            {"id": 3, "name": "test-frontend", "status": "queued", "conclusion": None},
+        ]
+        self.assertEqual(self.run_with(runs, [])[0], WARN)
+        self.assertEqual(
+            self.run_with(
+                runs[:2], [{"context": "harness/checks", "state": "success"}]
+            )[0],
+            OK,
+        )
+
+    def test_failed_gate_status_fails(self) -> None:
+        runs = [
+            {
+                "id": 2,
+                "name": "test-backend",
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        mark, detail = self.run_with(
+            runs, [{"context": "harness/checks", "state": "failure"}]
+        )
+        self.assertEqual(mark, FAIL)
+        self.assertIn("harness/checks", detail)
+
+    def test_latest_rerun_wins(self) -> None:
+        runs = [
+            {
+                "id": 2,
+                "name": "test-backend",
+                "status": "completed",
+                "conclusion": "failure",
+            },
+            {
+                "id": 5,
+                "name": "test-backend",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ]
+        self.assertEqual(self.run_with(runs, [])[0], OK)
 
 
 if __name__ == "__main__":

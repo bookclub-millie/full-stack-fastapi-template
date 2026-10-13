@@ -132,7 +132,8 @@ class CollectTest(unittest.TestCase):
 
         def fake_gh(*args: str) -> str:
             if args[0] == "api":
-                return json.dumps(runs)
+                self.assertIn("--paginate", args)
+                return json.dumps([runs])  # --slurp: one list entry per page
             if args[:2] == ("run", "download"):
                 self.assertEqual(args[2], "3")  # the latest run wins
                 Path(args[args.index("-D") + 1], "junit.xml").write_text(JUNIT)

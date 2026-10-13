@@ -121,7 +121,7 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(
             failures,
             [
-                "docs/prd.md: REQ-03이 완료인데 e2e-test.md 실행 결과에 PASS와 40자 SHA가 있는 TC가 없습니다 (확인한 TC: TC-02)"
+                "docs/prd.md: REQ-03이 완료인데 e2e-test.md 실행 결과에서 최신 결과가 PASS이고 실제 커밋 SHA(40자)가 있는 TC가 없습니다 (확인한 TC: TC-02)"
             ],
         )
         self.assertEqual(notes, {})
@@ -171,6 +171,39 @@ class TraceTest(unittest.TestCase):
             claims_changed=False,
         )
         self.assertNotIn("OpenSpec의 REQ가 docs/prd.md 추적표에 없음", notes)
+
+    def test_latest_result_per_tc_wins(self) -> None:
+        regressed = (
+            E2E + f"| TC-01 | {'c' * 40} | 2026-10-15 CI | 실패 | FAIL | run/2 |\n"
+        )
+        failures, _ = check(
+            self.docs(**{"docs/e2e-test.md": regressed}),
+            [],
+            archived=set(),
+            touched=set(),
+            claims_changed=True,
+        )
+        self.assertTrue(any("REQ-01" in f for f in failures))
+
+    def test_made_up_sha_is_not_evidence(self) -> None:
+        failures, _ = check(
+            self.docs(),
+            [],
+            archived=set(),
+            touched=set(),
+            claims_changed=True,
+            sha_exists=lambda sha: False,
+        )
+        self.assertTrue(any("REQ-01" in f for f in failures))
+        failures, _ = check(
+            self.docs(),
+            [],
+            archived=set(),
+            touched=set(),
+            claims_changed=True,
+            sha_exists=lambda sha: True,
+        )
+        self.assertFalse(any("REQ-01" in f for f in failures))
 
 
 if __name__ == "__main__":

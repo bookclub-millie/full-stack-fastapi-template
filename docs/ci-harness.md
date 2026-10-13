@@ -32,7 +32,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 |---|---|
 | 비밀값 스캔 | PR 커밋 범위(merge base..head)에서 gitleaks가 비밀값을 찾음. PR이 올린 `.gitleaksignore`·`gitleaks:allow` 주석은 무시한다. |
 | 워크플로 보안 | `.github/`가 바뀐 PR에서 zizmor가 문제를 찾음. 예: SHA로 고정하지 않은 action, 템플릿 인젝션, 과도한 권한. |
-| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 PASS와 40자 SHA가 있는 TC 결과가 없음. |
+| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 연결된 TC 중 **가장 최근 결과**가 PASS이고 저장소에 실제로 있는 커밋 SHA(40자)를 가진 것이 없음. |
 | 공급망 | lockfile에 새로 들어온 버전이 출시 7일 미만임. 레지스트리 밖 소스(git·URL·사설 레지스트리)를 씀. 레지스트리에 없는 패키지가 있음. cooldown 설정을 끄거나 7일 미만으로 줄임. 레지스트리 조회에 실패해도 실패로 처리한다. |
 
 ## 사람 확인 신호 — `harness/ack`
@@ -94,14 +94,14 @@ Actions → **Submission Check** → Run workflow에서 제출할 40자 SHA를 �
 |---|---|---|
 | 소스 SHA | 40자가 아니거나 저장소에 없음 | |
 | 문서 8개 | 없는 문서가 있음 | |
-| 문서 작성 | | 표가 템플릿 그대로인 문서 |
+| 문서 작성 | | 템플릿(저장소 첫 커밋)에서 바뀌지 않았거나 표가 빈 문서 |
 | README 연결 | | README(또는 `docs/README.md`)에서 닿지 않는 문서 |
-| 필수 REQ 근거 | `완료`인데 PASS·SHA 근거 없음 | 필수 REQ 미완료 |
+| 필수 REQ 근거 | `완료`인데 최신 PASS·실제 커밋 SHA 근거 없음 | 필수 REQ 미완료 |
 | 시험 결과 | | SHA가 있는 실행 결과가 없음 |
 | development.md 기록 | | archive된 변경의 기록 누락 |
 | OpenSpec | | archive 안 된 변경 |
 | 보안 | | `docs/security-policy.md` 없음, 미검증 항목 |
-| CI 검사 | 성공이 아닌 검사 | 검사 없음 |
+| CI 검사 | 실패한 검사, `harness/checks`·`harness/ack` 실패 | 진행 중이거나 결과 없음(이 점검 job 자체는 제외) |
 | Issue | | 열린 openspec Issue |
 
 ## OpenSpec Issue 동기화

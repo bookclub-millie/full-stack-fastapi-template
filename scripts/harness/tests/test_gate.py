@@ -264,6 +264,13 @@ class GateTest(unittest.TestCase):
         report = self.analyze(self.commit("record"))
         self.assertEqual(self.check(report, "docs")["status"], "pass")
 
+    def test_editing_an_old_archive_is_not_archiving(self) -> None:
+        self.write({"openspec/changes/archive/2026-01-01-old/proposal.md": "# Old\n"})
+        self.base = self.commit("old archive")
+        self.write({"openspec/changes/archive/2026-01-01-old/notes.md": "추가 메모\n"})
+        report = self.analyze(self.commit("note"))
+        self.assertEqual(self.check(report, "docs")["status"], "pass")
+
 
 if __name__ == "__main__":
     unittest.main()

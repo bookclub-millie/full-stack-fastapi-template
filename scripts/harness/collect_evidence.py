@@ -138,11 +138,16 @@ def _gh(*args: str) -> str:
 
 
 def latest_runs(repo: str, sha: str) -> dict[str, dict]:
-    runs = json.loads(
-        _gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
-    )["workflow_runs"]
+    pages = json.loads(
+        _gh(
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100",
+        )
+    )
     latest: dict[str, dict] = {}
-    for run in runs:
+    for run in (r for page in pages for r in page["workflow_runs"]):
         name = run.get("name", "")
         if name not in latest or run["id"] > latest[name]["id"]:
             latest[name] = run

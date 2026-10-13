@@ -56,6 +56,13 @@ class Git:
             "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}"
         ).strip()
 
+    def exists(self, sha: str) -> bool:
+        try:
+            self.run("cat-file", "-e", f"{sha}^{{commit}}")
+        except subprocess.CalledProcessError:
+            return False
+        return True
+
     def show(self, rev: str, path: str) -> str | None:
         try:
             return self.run("show", f"{rev}:{path}")
@@ -256,31 +263,38 @@ def check_supply_chain(
 
 
 def check_docs(
-    git: Git, head: str, changes: list[signals.FileChange]
+    git: Git, base: str, head: str, changes: list[signals.FileChange]
 ) -> tuple[dict, list[dict]]:
     """OpenSpec ↔ docs traceability (ADR-001): (check, notes)."""
-    prefix = f"{openspec.CHANGES_DIR}/"
     archived: set[str] = set()
     touched: set[str] = set()
+    existed_at_base: dict[str, bool] = {}
     for change in changes:
         for path in filter(None, (change.path, change.old_path)):
-            if not path.startswith(prefix):
+            if (found := openspec.locate(path)) is None:
                 continue
-            parts = path[len(prefix) :].split("/")
-            if parts[0] == "archive" and len(parts) >= 3:
-                change_id = openspec.ARCHIVE_PREFIX.sub("", parts[1])
-                touched.add(change_id)
-                if path == change.path and change.status in "AR":
+            directory, change_id, is_archive = found
+            touched.add(change_id)
+            if is_archive and path == change.path and change.status in "AR":
+                # Archived by this PR only if the archive folder is new.
+                if directory not in existed_at_base:
+                    existed_at_base[directory] = (
+                        git.show(base, f"{directory}/proposal.md") is not None
+                    )
+                if not existed_at_base[directory]:
                     archived.add(change_id)
-            elif parts[0] != "archive" and len(parts) >= 2:
-                touched.add(parts[0])
 
-    listed = git.run("ls-tree", "-r", "--name-only", head, "--", openspec.CHANGES_DIR)
-    files = {
-        path: text
-        for path in listed.splitlines()
-        if path.endswith(".md") and (text := git.show(head, path)) is not None
-    }
+    files: dict[str, str] = {}
+    if touched:
+        listed = git.run(
+            "ls-tree", "-r", "--name-only", head, "--", openspec.CHANGES_DIR
+        )
+        for path in listed.splitlines():
+            found = openspec.locate(path)
+            if not (path.endswith(".md") and found and found[1] in touched):
+                continue
+            if (text := git.show(head, path)) is not None:
+                files[path] = text
     docs = {
         path: git.show(head, path)
         for path in (
@@ -298,6 +312,7 @@ def check_docs(
         archived=archived,
         touched=touched,
         claims_changed=bool(changed & {traceability.PRD, traceability.E2E}),
+        sha_exists=git.exists,
     )
     title = "문서 추적성 (archive 기록·근거 없는 완료)"
     check = _check("docs", title, "fail" if failures else "pass", failures)
@@ -328,7 +343,7 @@ def analyze(
         check_workflows(zizmor_exit, zizmor_log),
         supply_chain,
     ]
-    docs_check, notes = check_docs(git, head, changes)
+    docs_check, notes = check_docs(git, base, head, changes)
     checks.append(docs_check)
 
     found = signals.collect_signals(changes)
