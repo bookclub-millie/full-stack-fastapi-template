@@ -80,7 +80,7 @@ Storybook: <http://localhost:6006> · 사용 예시: `src/stories`
 ## 코드 작성 규칙
 
 - 함수는 `const` 함수 표현식과 화살표 함수를 우선합니다. 동적 `this`가 필요하면 일반 함수 표현식을 사용합니다.
-- 파일명은 `auth-layout.tsx`, `use-auth.ts`처럼 케밥케이스로 작성합니다. 컴포넌트 이름은 PascalCase, 훅 이름은 camelCase를 사용합니다.
+- 파일명과 폴더명은 `auth-layout.tsx`, `use-auth.ts`, `user-settings/`처럼 소문자 케밥케이스로 작성합니다. 컴포넌트 이름은 PascalCase, 훅 이름은 camelCase를 사용합니다.
 - `__root.tsx`, `_layout.tsx`, `*.stories.tsx`, `*.spec.ts` 등 도구가 사용하는 파일 규칙은 유지합니다.
 - 페이지 컴포넌트를 참조하는 라우트 정의는 컴포넌트 뒤에 둡니다.
 - `src/client`와 `routeTree.gen.ts` 같은 생성 코드는 직접 수정하지 않습니다.

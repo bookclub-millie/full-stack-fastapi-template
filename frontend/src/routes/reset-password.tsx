@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { LoginService } from '@/client'
-import { AuthLayout } from '@/components/Common/auth-layout'
+import { AuthLayout } from '@/components/common/auth-layout'
 import {
   Form,
   FormControl,

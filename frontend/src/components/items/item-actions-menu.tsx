@@ -8,8 +8,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import DeleteItem from '../Items/delete-item'
-import EditItem from '../Items/edit-item'
+import DeleteItem from './delete-item'
+import EditItem from './edit-item'
 
 interface ItemActionsMenuProps {
   item: ItemPublic

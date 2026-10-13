@@ -9,7 +9,7 @@ import {
 import { Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { AuthLayout } from '@/components/Common/auth-layout'
+import { AuthLayout } from '@/components/common/auth-layout'
 import {
   Form,
   FormControl,

@@ -4,10 +4,10 @@ import { Search } from 'lucide-react'
 import { Suspense } from 'react'
 
 import { ItemsService } from '@/client'
-import { DataTable } from '@/components/Common/data-table'
-import AddItem from '@/components/Items/add-item'
-import { columns } from '@/components/Items/columns'
-import PendingItems from '@/components/Pending/pending-items'
+import { DataTable } from '@/components/common/data-table'
+import AddItem from '@/components/items/add-item'
+import { columns } from '@/components/items/columns'
+import PendingItems from '@/components/pending/pending-items'
 
 const getItemsQueryOptions = () => {
   return {

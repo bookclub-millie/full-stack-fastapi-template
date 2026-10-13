@@ -30,7 +30,7 @@ test('User can reset password successfully using the link', async ({
   await page.goto('/recover-password')
   await page.getByTestId('email-input').fill(email)
 
-  await page.getByRole('button', { name: '재설정 링크 보내기' }).click()
+  await page.getByRole('button', { name: '이메일로 링크 받기' }).click()
 
   const emailHtml = await waitForEmailHtml({
     request,
@@ -64,7 +64,9 @@ test('Expired or invalid reset link', async ({ page }) => {
   await page.getByRole('button', { name: '비밀번호 재설정' }).click()
 
   await expect(
-    page.getByText('비밀번호 재설정 링크가 유효하지 않거나 만료되었습니다.')
+    page.getByText(
+      '비밀번호 재설정 링크가 유효하지 않거나 만료됐어요. 비밀번호 찾기에서 새 링크를 요청해 주세요.'
+    )
   ).toBeVisible()
 })
 
@@ -79,7 +81,7 @@ test('Weak new password validation', async ({ page, request }) => {
 
   await page.goto('/recover-password')
   await page.getByTestId('email-input').fill(email)
-  await page.getByRole('button', { name: '재설정 링크 보내기' }).click()
+  await page.getByRole('button', { name: '이메일로 링크 받기' }).click()
 
   const emailHtml = await waitForEmailHtml({
     request,

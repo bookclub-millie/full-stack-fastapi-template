@@ -1,8 +1,8 @@
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createRootRoute, HeadContent, Outlet } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import ErrorComponent from '@/components/Common/error-component'
-import NotFound from '@/components/Common/not-found'
+import ErrorComponent from '@/components/common/error-component'
+import NotFound from '@/components/common/not-found'
 
 export const Route = createRootRoute({
   component: () => (
