@@ -19,6 +19,13 @@ AI 코딩 에이전트(Claude Code, Codex 등)가 이 저장소에서 작업할 
 - 인증·권한·데이터 저장 등 보안이나 데이터 손실에 영향을 주는 로직 변경은 마무리까지 미루지 않고 변경 시점에 관련 테스트로 검증한다.
 - 이 규칙은 로컬 작업의 검사 시점을 정한다. 기존 테스트·커버리지 기준·CI 설정은 유지하며, CI에서 요구하는 검사는 그대로 통과해야 한다.
 
+## OpenSpec과 문서·Issue
+
+- 기능·동작 변경은 OpenSpec으로 시작한다(Claude Code `/opsx:propose`, Codex `$openspec-propose`). 산출물 형식과 ID 규칙은 `openspec/config.yaml`을 따른다.
+- 제안(spec) PR을 먼저 머지한다. 머지되면 개발 작업 Issue가 자동으로 만들어지고, archive가 머지되면 근거와 함께 닫힌다. Issue를 손으로 만들거나 닫지 않는다.
+- 구현을 마치는 archive PR에 문서 결과와 `docs/development.md` 기록을 함께 넣는다.
+- 시험 결과는 `scripts/harness/collect_evidence.py`가 출력한 행만 옮긴다. 출력에 없는 시험은 `미검증`으로 두고, 실행하지 않은 시험을 PASS·완료로 쓰지 않는다.
+
 ## 의존성
 
 - 새 의존성은 꼭 필요할 때만 추가하고, 추가 전에 공식 레지스트리(npmjs.com, pypi.org)에서 이름·관리자·최초 등록일·소스 저장소를 확인한다. 이름을 추측하지 않는다(AI가 지어낸 이름을 노린 slopsquatting).

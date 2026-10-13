@@ -22,5 +22,6 @@
 
 | ADR | 결정 | 상태 |
 |---|---|---|
+| [ADR-001](adr/001-openspec-docs-traceability.md) | OpenSpec과 문서·Issue를 ID로 연동 | 채택 |
 
 저장소 전반에 영향을 주는 결정은 [ADR 템플릿](adr/000-template.md)을 복사해 기록한다.

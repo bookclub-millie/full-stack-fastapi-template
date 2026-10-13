@@ -83,4 +83,11 @@ def render(report: dict) -> str:
                 "새 커밋이 push되면 라벨이 자동으로 해제되므로 다시 확인해야 합니다."
             ),
         ]
+    if report.get("notes"):
+        lines += ["", "### 참고 (차단 안 함)", ""]
+        for note in report["notes"]:
+            lines += [
+                f"- **{note['title']}** ({len(note['items'])}건)",
+                *_items(note["items"]),
+            ]
     return "\n".join(lines) + "\n"

@@ -235,6 +235,42 @@ class GateTest(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             self.analyze("0" * 40)
 
+    def test_archiving_without_development_row_fails_docs_check(self) -> None:
+        header = "## AI 활용과 검증\n\n| Issue | 담당자 | AI 도구·사용 목적 | 변경 코드·활용 기록 | 검증·발견 문제 | 수정·재시험 근거 |\n|---|---|---|---|---|---|\n"
+        self.write(
+            {
+                "docs/development.md": "# 개발 과정\n\n" + header,
+                "openspec/changes/foo/proposal.md": "# Foo\n요구사항: REQ-01\n",
+            }
+        )
+        self.base = self.commit("propose")
+        self.write(
+            {
+                "openspec/changes/foo/proposal.md": None,
+                "openspec/changes/archive/2026-10-14-foo/proposal.md": "# Foo\n요구사항: REQ-01\n",
+            }
+        )
+        report = self.analyze(self.commit("archive"))
+        docs = self.check(report, "docs")
+        self.assertEqual(docs["status"], "fail")
+        self.assertIn("foo", docs["items"][0])
+        self.assertIn(
+            "OpenSpec의 REQ가 docs/prd.md 추적표에 없음",
+            [n["title"] for n in report["notes"]],
+        )
+
+        row = "| #3 (foo) | gray | Claude Code 구현 | PR #7 | 경계값 누락 | 재실행 |\n"
+        self.write({"docs/development.md": "# 개발 과정\n\n" + header + row})
+        report = self.analyze(self.commit("record"))
+        self.assertEqual(self.check(report, "docs")["status"], "pass")
+
+    def test_editing_an_old_archive_is_not_archiving(self) -> None:
+        self.write({"openspec/changes/archive/2026-01-01-old/proposal.md": "# Old\n"})
+        self.base = self.commit("old archive")
+        self.write({"openspec/changes/archive/2026-01-01-old/notes.md": "추가 메모\n"})
+        report = self.analyze(self.commit("note"))
+        self.assertEqual(self.check(report, "docs")["status"], "pass")
+
 
 if __name__ == "__main__":
     unittest.main()

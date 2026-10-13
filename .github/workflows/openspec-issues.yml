@@ -1,0 +1,59 @@
+name: OpenSpec Issues
+
+# One GitHub Issue per OpenSpec change, in the 개발 작업·검증 format: created when
+# the proposal lands on the default branch, closed as completed (with evidence)
+# when the change is archived, closed as not planned when it is dropped.
+# Runs default-branch code only. See docs/adr/001-openspec-docs-traceability.md.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - openspec/**
+  schedule:
+    # Daily re-check: retries completions whose required checks had not finished.
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: openspec-issues
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write # create, update and close OpenSpec Issues
+      pull-requests: read # find the PR that merged a proposal or an archive
+      checks: read # required check results used as evidence
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the commits that first added each proposal and archive.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Plan Issues from OpenSpec
+        env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          python3 -I scripts/harness/issue_plan.py --repo . \
+            --repo-url "$REPO_URL" --branch "$BRANCH" --out "$RUNNER_TEMP/openspec-issues.json"
+      - name: Sync Issues
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PLAN: ${{ runner.temp }}/openspec-issues.json
+          REQUIRED_CHECKS: test-backend,test-frontend,alls-green-playwright
+        with:
+          script: |
+            const fs = require('fs');
+            const syncIssues = require(`${process.env.GITHUB_WORKSPACE}/scripts/harness/issue_sync.cjs`);
+            const plan = JSON.parse(fs.readFileSync(process.env.PLAN, 'utf8'));
+            const summary = await syncIssues({
+              github, context, core, plan, requiredChecks: process.env.REQUIRED_CHECKS.split(','),
+            });
+            await core.summary.addHeading('OpenSpec Issues').addCodeBlock(JSON.stringify(summary, null, 2), 'json').write();
