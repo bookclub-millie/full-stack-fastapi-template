@@ -18,7 +18,6 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # -I drops the script directory from sys.path; add only this trusted directory.
@@ -36,9 +35,9 @@ def _gh(*args: str) -> str:
     ).stdout
 
 
-def _dispatched_run(repo: str, workflow: str, sha: str, since: datetime) -> dict | None:
-    """The newest manual run of `workflow` on `sha` created after `since`."""
-    runs = json.loads(
+def _runs(repo: str, workflow: str) -> list[dict]:
+    """Recent manual runs of `workflow`, newest first."""
+    return json.loads(
         _gh(
             "run",
             "list",
@@ -51,14 +50,9 @@ def _dispatched_run(repo: str, workflow: str, sha: str, since: datetime) -> dict
             "--limit",
             "20",
             "--json",
-            "databaseId,headSha,status,conclusion,createdAt,url",
+            "databaseId,headSha,status,conclusion,url",
         )
     )
-    for run in runs:  # newest first
-        created = datetime.fromisoformat(run["createdAt"].replace("Z", "+00:00"))
-        if created >= since and run["headSha"] == sha:
-            return run
-    return None
 
 
 def main() -> int:
@@ -80,7 +74,10 @@ def main() -> int:
     )
     sha = _gh("api", f"repos/{repo}/commits/{args.ref}", "--jq", ".sha").strip()
     print(f"{args.ref} = {sha}: 시험 워크플로 {len(WORKFLOWS)}개를 수동 실행합니다.")
-    since = datetime.now(timezone.utc) - timedelta(minutes=1)
+    # Runs are recognized by id, not by time: a newer id than any run seen before.
+    seen = {
+        w: max((r["databaseId"] for r in _runs(repo, w)), default=0) for w in WORKFLOWS
+    }
     for workflow in WORKFLOWS:
         _gh("workflow", "run", workflow, "-R", repo, "--ref", args.ref)
 
@@ -90,7 +87,18 @@ def main() -> int:
         for workflow in WORKFLOWS:
             run = runs[workflow]
             if run is None or run["status"] != "completed":
-                runs[workflow] = _dispatched_run(repo, workflow, sha, since)
+                new = [
+                    r for r in _runs(repo, workflow) if r["databaseId"] > seen[workflow]
+                ]
+                runs[workflow] = new[-1] if new else None  # the oldest new run is ours
+        moved = [r for r in runs.values() if r and r["headSha"] != sha]
+        if moved:
+            print(
+                f"{args.ref}가 {sha[:12]}에서 {moved[0]['headSha'][:12]}로 바뀌어 다른 커밋을 "
+                "시험하고 있습니다. 다시 실행하세요",
+                file=sys.stderr,
+            )
+            return 1
         if all(run and run["status"] == "completed" for run in runs.values()):
             break
         time.sleep(POLL_SECONDS)
@@ -99,11 +107,7 @@ def main() -> int:
     for workflow, run in runs.items():
         if run is None:
             ok = False
-            print(
-                f"{workflow}: {sha[:12]}에서 실행을 찾지 못했습니다. "
-                f"그사이 {args.ref}가 바뀌었을 수 있습니다",
-                file=sys.stderr,
-            )
+            print(f"{workflow}: 수동 실행을 찾지 못했습니다", file=sys.stderr)
         elif run["status"] != "completed":
             ok = False
             print(

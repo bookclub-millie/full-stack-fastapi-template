@@ -58,7 +58,7 @@ REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. �
   | 저장소 상태 | Issue 처리 |
   |---|---|
   | 진행 중 | 없으면 만든다. 열려 있으면 자동 구역만 갱신하고, 사람이 체크한 항목과 근거 섹션은 보존한다. |
-  | archive됨 | 근거를 기입한다. archive를 머지한 PR의 필수 검사(`test-backend`, `test-frontend`, `alls-green-playwright`)가 모두 success면 completed로 닫는다. 머지 직후 실행은 아직 도는 검사를 최대 10분 기다린다. 그래도 아니면 코멘트만 남기고 다음 실행(매시간)에서 다시 본다. |
+  | archive됨 | 근거를 기입한다. archive를 머지한 PR의 필수 검사(`test-backend`, `test-frontend`, `alls-green-playwright`)가 모두 success면 completed로 닫는다. master push로 돈 실행은 15분 안에 머지된 archive의 검사가 아직 돌면, 다른 Issue를 모두 처리한 뒤 한꺼번에 최대 10분 기다린다. 그래도 아니면 코멘트만 남기고 다음 실행(매시간)에서 다시 본다. |
   | 사라짐 | 사유 코멘트와 함께 not planned로 닫는다. |
   | 사람이 닫음 | 다시 열지 않는다(재오픈은 진행률을 낮춘다). |
   | Issues가 꺼진 저장소 | 아무것도 하지 않는다. |

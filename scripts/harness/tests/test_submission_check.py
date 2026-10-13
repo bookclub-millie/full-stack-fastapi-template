@@ -87,7 +87,14 @@ class SubmissionCheckTest(unittest.TestCase):
         self.assertEqual(results["TC 연결"], OK)
 
     def test_results_older_than_the_code_warn(self) -> None:
-        first = self.commit(self.docs(**{"docs/e2e-test.md": "## 실행 결과\n"}))
+        first = self.commit(
+            self.docs(
+                **{
+                    "docs/e2e-test.md": "## 실행 결과\n",
+                    "backend/app/main.py": "x = 1\n",
+                }
+            )
+        )
         recorded = self.commit({"docs/e2e-test.md": E2E_PASS.replace(SHA, first)})
         # Only docs changed since the evidence commit: the results still hold.
         detail = {n: (m, d) for n, m, d in evaluate(Repo(self.tmp.name), recorded)}
@@ -95,7 +102,12 @@ class SubmissionCheckTest(unittest.TestCase):
         later = self.commit({"backend/app/main.py": "x = 2\n"})
         detail = {n: (m, d) for n, m, d in evaluate(Repo(self.tmp.name), later)}
         self.assertEqual(detail["시험 결과"][0], WARN)
-        self.assertIn("최신 결과 이후 코드가 바뀐 TC: TC-01", detail["시험 결과"][1])
+        self.assertIn("결과 이후 코드가 바뀐 TC: TC-01", detail["시험 결과"][1])
+        # Markdown anywhere (AGENTS.md, frontend/README.md) is not code.
+        self.commit({"backend/app/main.py": "x = 1\n"})  # back to the tested code
+        notes = self.commit({"AGENTS.md": "규칙\n", "frontend/README.md": "안내\n"})
+        detail = {n: (m, d) for n, m, d in evaluate(Repo(self.tmp.name), notes)}
+        self.assertEqual(detail["시험 결과"][0], OK)
 
     def test_tc_link_problems_warn(self) -> None:
         files = self.docs(

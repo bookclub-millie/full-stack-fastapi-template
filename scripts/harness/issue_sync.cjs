@@ -86,10 +86,12 @@ module.exports = async function syncIssues({
   plan,
   requiredChecks,
   // Right after an archive is merged its PR's checks may still be running; wait
-  // for them instead of leaving the Issue for the next scheduled run.
+  // for them (one deadline for the whole run) instead of leaving the Issue for
+  // the next scheduled run.
   waitForChecksMs = 0,
   pollMs = 30000,
-  sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
+  now = Date.now
 }) {
   const { owner, repo } = context.repo
   const repoUrl = `${context.serverUrl}/${owner}/${repo}`
@@ -255,28 +257,13 @@ module.exports = async function syncIssues({
     summary.notPlanned.push(issue.number)
   }
 
-  const complete = async (issue, change) => {
-    if (!change.archive_commit) {
-      await setPendingComment(
-        issue.number,
-        'archive 커밋을 찾을 수 없어 완료 처리를 보류합니다.'
-      )
-      summary.pending.push(issue.number)
-      return
-    }
+  // Archives whose PR was merged this recently may still have checks running
+  // (or not yet reported); older ones are judged as they are.
+  const RECENT_MS = 15 * 60 * 1000
+  const deferred = []
+
+  const finish = async (issue, change, pr, results) => {
     const { managed, evidence } = splitBody(issue.body)
-    const pr = await mergedPullFor(change.archive_commit)
-    const ref = pr ? pr.head.sha : change.archive_commit
-    let results = await checkResults(ref)
-    for (
-      let waited = 0;
-      waited < waitForChecksMs &&
-      results.some(r => UNFINISHED.has(r.conclusion));
-      waited += pollMs
-    ) {
-      await sleep(pollMs)
-      results = await checkResults(ref)
-    }
     const passed = results.every(r => r.conclusion === 'success')
     const auto = [
       `커밋 주소: ${repoUrl}/commit/${change.archive_commit}`,
@@ -324,6 +311,30 @@ module.exports = async function syncIssues({
       `필수 검사가 모두 success가 아니라 완료 처리를 보류합니다 (${failing.join(', ')}). 다음 동기화 때 다시 확인합니다.`
     )
     summary.pending.push(issue.number)
+  }
+
+  const complete = async (issue, change) => {
+    if (!change.archive_commit) {
+      await setPendingComment(
+        issue.number,
+        'archive 커밋을 찾을 수 없어 완료 처리를 보류합니다.'
+      )
+      summary.pending.push(issue.number)
+      return
+    }
+    const pr = await mergedPullFor(change.archive_commit)
+    const ref = pr ? pr.head.sha : change.archive_commit
+    const results = await checkResults(ref)
+    const recent = pr && now() - Date.parse(pr.merged_at) < RECENT_MS
+    if (
+      waitForChecksMs > 0 &&
+      recent &&
+      results.some(r => UNFINISHED.has(r.conclusion))
+    ) {
+      deferred.push({ issue, change, pr, ref, results })
+      return
+    }
+    await finish(issue, change, pr, results)
   }
 
   const planned = new Set(plan.changes.map(c => c.id))
@@ -402,6 +413,25 @@ module.exports = async function syncIssues({
       )
     }
   }
+
+  // Wait for the checks of archives merged just now, after every other Issue
+  // is up to date, with one deadline for the whole run.
+  for (
+    let waited = 0;
+    deferred.length > 0 && waited < waitForChecksMs;
+    waited += pollMs
+  ) {
+    await sleep(pollMs)
+    for (const item of [...deferred]) {
+      item.results = await checkResults(item.ref)
+      if (!item.results.some(r => UNFINISHED.has(r.conclusion))) {
+        deferred.splice(deferred.indexOf(item), 1)
+        await finish(item.issue, item.change, item.pr, item.results)
+      }
+    }
+  }
+  for (const item of deferred)
+    await finish(item.issue, item.change, item.pr, item.results)
 
   core.info(`OpenSpec issue sync: ${JSON.stringify(summary)}`)
   return summary
