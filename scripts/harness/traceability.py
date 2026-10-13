@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
+import idregistry
 import tcnames
 from doctables import cell, filled, table
 
-from openspec import Change
+from openspec import Change, Requirement
 
 PRD = "docs/prd.md"
 E2E = "docs/e2e-test.md"
@@ -313,5 +315,131 @@ def check_tests(
         for tc in sorted(in_scenarios - manual - set(tagged)):
             note(
                 "테스트가 없는 TC 시나리오 (구현 전이면 정상, 결과가 수집되지 않음)", tc
+            )
+    return failures, notes
+
+
+NEXT_IDS = "python3 -I scripts/harness/next_ids.py --github"
+
+
+@dataclass
+class Snapshot:
+    """Docs and OpenSpec state of one commit (every change, and the main specs)."""
+
+    docs: dict[str, str | None]
+    changes: list[Change]
+    specs: list[Requirement] = field(default_factory=list)
+
+
+def check_ids(
+    docs: dict[str, str | None],
+    changes: list[Change],
+    base: Snapshot,
+    tip: Snapshot,
+    *,
+    changed: set[str],
+    archived: set[str],
+    removed: set[str],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """REQ·AC·FLOW·TC numbers claimed twice. Returns (failures, notes).
+
+    docs/changes: this PR's head (changes: the ones it touches). base: the merge
+    base, i.e. what this PR started from. tip: the base branch now, which may
+    hold proposals merged since. removed: change ids this PR deletes or renames.
+    """
+    failures: list[str] = []
+    notes: dict[str, list[str]] = {}
+
+    def note(title: str, item: str) -> None:
+        notes.setdefault(title, []).append(item)
+
+    existing = idregistry.scenario_ids(
+        tip.specs + [r for c in tip.changes for r in c.requirements]
+    )
+    head_registered = idregistry.all_registered(docs)
+    used = (
+        head_registered
+        | idregistry.all_registered(tip.docs)
+        | {i for c in [*changes, *tip.changes] for i in idregistry.claimed(c)}
+        | {i for ids in existing.values() for i in ids}
+        | set(existing)
+    )
+    hint = idregistry.next_free(used)
+
+    def next_for(identifier: str) -> str:
+        return f"다음 빈 번호: {hint[identifier.split('-')[0]]} (`{NEXT_IDS}`)"
+
+    # Duplicate rows this PR introduces; older ones are only reported.
+    before = idregistry.duplicates(base.docs)
+    for identifier, doc in sorted(idregistry.duplicates(docs).items()):
+        message = f"{doc}: {identifier} 행이 둘 이상입니다"
+        if doc in changed and identifier not in before:
+            failures.append(
+                f"{message}. 같은 항목이면 한 행으로 합치세요(새 AC는 그 REQ 행의 AC 칸에 추가). "
+                f"다른 항목이면 번호를 바꾸세요. {next_for(identifier)}"
+            )
+        else:
+            note("ID 중복 (이번 PR 전부터 있음)", message)
+
+    # Rows that were on the base disappear: often someone else's row lost while
+    # resolving a merge conflict in the table.
+    base_rows = idregistry.registered(base.docs)
+    for kind, (doc, section, _) in idregistry.REGISTRY.items():
+        if doc not in changed:
+            continue
+        for identifier in sorted(
+            {i for row in base_rows[kind] for i in row} - head_registered
+        ):
+            failures.append(
+                f"{doc} {section}: 기준 브랜치에 있던 {identifier} 행이 사라졌습니다. 충돌을 풀다 다른 사람의 "
+                "행을 지우지 않았는지 확인하세요. 요구사항을 없앤 것이면 행은 두고 상태를 `취소`로 바꿉니다"
+            )
+
+    owners: dict[str, set[str]] = {}
+    for change in tip.changes:
+        if change.id in removed:
+            continue
+        for identifier in idregistry.claimed(change):
+            owners.setdefault(identifier, set()).add(change.id)
+    tip_registered = idregistry.all_registered(tip.docs)
+    claims: dict[str, set[str]] = {}
+    for change in changes:
+        # What this change already claimed when the PR started (an archive keeps its id).
+        before_claims = {
+            i
+            for c in base.changes
+            if c.id == change.id and (change.archived or not c.archived)
+            for i in idregistry.claimed(c, existing)
+        }
+        for identifier in sorted(idregistry.claimed(change, existing) - before_claims):
+            claims.setdefault(identifier, set()).add(change.id)
+            others = sorted(owners.get(identifier, set()) - {change.id})
+            if others:
+                failures.append(
+                    f"{change.id}: {identifier} 번호는 기준 브랜치의 변경 {', '.join(others)}에서 이미 쓰고 "
+                    f"있습니다. 번호를 바꾸세요. {next_for(identifier)}"
+                )
+            elif identifier in tip_registered:
+                note(
+                    "기준 브랜치 문서 표에 이미 있는 번호를 새로 정의함",
+                    f"{change.id}: {identifier}. 같은 요구사항을 spec으로 옮긴 것이면 괜찮습니다. "
+                    f"다른 것이면 번호를 바꾸세요. {next_for(identifier)}",
+                )
+    for identifier, ids in sorted(claims.items()):
+        if len(ids) > 1:
+            failures.append(
+                f"{identifier} 번호를 이 PR의 변경 {', '.join(sorted(ids))}에서 함께 정의합니다. "
+                f"하나를 바꾸세요. {next_for(identifier)}"
+            )
+
+    # Archiving finishes a change, so its numbers must be in the docs tables.
+    for change in changes:
+        if change.id not in archived:
+            continue
+        missing = sorted(idregistry.claimed(change) - head_registered)
+        if missing:
+            failures.append(
+                f"archive하는 변경 {change.id}: 문서 표에 없는 번호 {', '.join(missing)} "
+                f"(REQ·AC는 {PRD} 요구사항 추적표, TC는 {E2E} 테스트 시나리오에 행 추가)"
             )
     return failures, notes

@@ -278,6 +278,10 @@ class GateTest(unittest.TestCase):
             {
                 "docs/development.md": dev,
                 "docs/e2e-test.md": e2e,
+                "docs/prd.md": (
+                    "## 요구사항 추적표\n\n| REQ | 요구사항 | 우선순위 | AC·인수조건 | FLOW | Issue·코드 | TC | 상태 |\n"
+                    "|---|---|---|---|---|---|---|---|\n| REQ-01 | 등록 | 필수 | AC-01 | | | TC-01 | 계획 |\n"
+                ),
                 "openspec/changes/foo/proposal.md": "# Foo\n요구사항: REQ-01\n",
                 "openspec/changes/foo/specs/todo/spec.md": spec,
             }
@@ -323,6 +327,68 @@ class GateTest(unittest.TestCase):
         self.assertEqual(len(items), 2)
         self.assertTrue(any("testTC01" in item for item in items))
         self.assertTrue(any("testTC02" in item for item in items))
+
+    def test_numbers_taken_on_the_base_branch_fail(self) -> None:
+        prd = (
+            "## 요구사항 추적표\n\n| REQ | 요구사항 | 우선순위 | AC·인수조건 | FLOW | Issue·코드 | TC | 상태 |\n"
+            "|---|---|---|---|---|---|---|---|\n"
+        )
+        row = "| REQ-01 | {} | 필수 | AC-01 | | | | 계획 |\n"
+        spec = "## ADDED Requirements\n### Requirement: REQ-01 {}\n#### Scenario: AC-01 거부\n"
+        self.write(
+            {
+                "docs/prd.md": prd + row.format("할 일 등록"),
+                "openspec/changes/add-todo/proposal.md": "# 할 일\n요구사항: REQ-01\n",
+                "openspec/changes/add-todo/specs/todo/spec.md": spec.format("등록"),
+            }
+        )
+        self.base = self.commit("first proposal merged")
+        # A second proposal written in parallel picked the same numbers.
+        self.write(
+            {
+                "docs/prd.md": prd + row.format("할 일 등록") + row.format("목록"),
+                "openspec/changes/list-todo/proposal.md": "# 목록\n요구사항: REQ-01\n",
+                "openspec/changes/list-todo/specs/todo/spec.md": spec.format("목록"),
+            }
+        )
+        docs = self.check(self.analyze(self.commit("second proposal")), "docs")
+        self.assertEqual(docs["status"], "fail")
+        self.assertTrue(any("REQ-01 행이 둘 이상입니다" in i for i in docs["items"]))
+        self.assertTrue(
+            any(
+                "list-todo: REQ-01 번호는 기준 브랜치의 변경 add-todo" in i
+                for i in docs["items"]
+            )
+        )
+        self.assertTrue(any("다음 빈 번호: REQ-02" in i for i in docs["items"]))
+
+    def test_numbers_merged_after_branching_are_checked_on_the_tip(self) -> None:
+        spec = "## ADDED Requirements\n### Requirement: REQ-01 {}\n#### Scenario: AC-01 거부\n"
+        fork = self.base
+        self.write(
+            {
+                "openspec/changes/add-todo/proposal.md": "# 할 일\n요구사항: REQ-01\n",
+                "openspec/changes/add-todo/specs/todo/spec.md": spec.format("등록"),
+            }
+        )
+        tip = self.commit("first proposal merged")
+        self.git("checkout", "-q", fork)
+        self.write(
+            {
+                "openspec/changes/list-todo/proposal.md": "# 목록\n요구사항: REQ-01\n",
+                "openspec/changes/list-todo/specs/todo/spec.md": spec.format("목록"),
+            }
+        )
+        head = self.commit("second proposal, branched before the first merged")
+        self.assertEqual(self.check(self.analyze(head), "docs")["status"], "pass")
+        docs = self.check(self.analyze(head, base_tip=tip), "docs")
+        self.assertEqual(docs["status"], "fail")
+        self.assertTrue(
+            any(
+                "list-todo: REQ-01 번호는 기준 브랜치의 변경 add-todo" in i
+                for i in docs["items"]
+            )
+        )
 
     def test_editing_an_old_archive_is_not_archiving(self) -> None:
         self.write({"openspec/changes/archive/2026-01-01-old/proposal.md": "# Old\n"})

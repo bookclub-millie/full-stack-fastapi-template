@@ -13,6 +13,7 @@ from pathlib import Path
 import tcnames
 
 CHANGES_DIR = "openspec/changes"
+SPECS_DIR = "openspec/specs"
 ARCHIVE_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 GENERIC_TITLES = {"proposal", "제안", "제안서"}
 
@@ -48,6 +49,7 @@ class Requirement:
     id: str | None
     name: str
     scenarios: list[Scenario] = field(default_factory=list)
+    added: bool = True  # False under "## MODIFIED Requirements"
 
 
 @dataclass
@@ -110,16 +112,16 @@ def parse_proposal(text: str) -> Proposal:
 def parse_spec(text: str) -> list[Requirement]:
     """Requirements and scenarios from ADDED/MODIFIED delta sections."""
     requirements: list[Requirement] = []
-    included = True
+    operation = "ADDED"
     for line in text.splitlines():
         if section := DELTA_SECTION.match(line):
-            included = section.group(1).upper() in ("ADDED", "MODIFIED")
+            operation = section.group(1).upper()
             continue
-        if not included:
+        if operation not in ("ADDED", "MODIFIED"):
             continue
         if line.startswith("### Requirement:"):
             req_id, name = _split_id(line.split(":", 1)[1])
-            requirements.append(Requirement(req_id, name))
+            requirements.append(Requirement(req_id, name, added=operation == "ADDED"))
         elif line.startswith("#### Scenario:") and requirements:
             ac_id, name = _split_id(line.split(":", 1)[1])
             requirements[-1].scenarios.append(Scenario(ac_id, name))
