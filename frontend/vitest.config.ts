@@ -5,6 +5,8 @@ export default defineConfig({
     name: 'unit',
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // test-results/unit.json feeds scripts/harness/collect_evidence.py (TC evidence).
+    reporters: ['default', './evidence-reporter.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/lib/env.ts', 'src/utils.ts'],

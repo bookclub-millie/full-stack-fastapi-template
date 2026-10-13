@@ -275,7 +275,8 @@ class CheckTestsTest(unittest.TestCase):
             [
                 (
                     "add-todo의 AC-01: TC-01를 확인하는 실행되는 테스트가 없습니다 (pytest `test_tc_01_<설명>` 또는 "
-                    'Playwright `test("TC-01 <설명>", ...)`, 위치: backend/tests/(pytest), frontend/tests/e2e/(Playwright))'
+                    'Playwright·vitest `test("TC-01 <설명>", ...)`, 위치: backend/tests/(pytest), frontend/tests/e2e/(Playwright), '
+                    "frontend/src/**/*.test.ts(vitest))"
                 ),
                 "docs/e2e-test.md: add-todo의 AC-09를 확인하는 테스트 시나리오(TC) 행이 없습니다",
             ],

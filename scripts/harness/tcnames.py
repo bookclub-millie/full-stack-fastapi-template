@@ -1,7 +1,8 @@
 """TC ids in test names: the ones collect_evidence counts, and near misses it would drop.
 
-pytest functions named `test_tc_07_...` under backend/tests and Playwright
-`test("TC-07 ...")` titles under frontend/tests/e2e are collected. Everything
+pytest functions named `test_tc_07_...` under backend/tests, Playwright
+`test("TC-07 ...")` titles under frontend/tests/e2e and vitest `it("TC-07 ...")`
+titles in frontend/src/**/*.test.ts are collected. Everything
 here reads source as text (Python through `ast.parse`); nothing is executed.
 See docs/adr/001-openspec-docs-traceability.md.
 """
@@ -20,12 +21,18 @@ PYTEST_TC = re.compile(r"\btest_tc_?(\d{1,6})(?!\d)", re.IGNORECASE)
 NEAR_MISS = re.compile(r"(?:(?<![A-Z])TC|(?<![A-Za-z0-9])tc)[-_ ]?\d+")
 
 # Where collect_evidence gets results: Test Backend runs `pytest tests/` in backend,
-# Playwright Tests runs frontend/playwright.config.ts (testDir ./tests/e2e).
+# Playwright Tests runs frontend/playwright.config.ts (testDir ./tests/e2e), and
+# Frontend Quality runs vitest with frontend/vitest.config.ts (src/**/*.test.ts).
 PYTHON_TESTS = "backend/tests/"
 PLAYWRIGHT_TESTS = "frontend/tests/e2e/"
-LOCATIONS = f"{PYTHON_TESTS}(pytest), {PLAYWRIGHT_TESTS}(Playwright)"
-# Test files elsewhere (backend/app, vitest in frontend/src, visual tests) are read
-# only to report TC ids that would never be collected.
+VITEST_TESTS = "frontend/src/"
+VITEST_SUFFIX = ".test.ts"
+LOCATIONS = (
+    f"{PYTHON_TESTS}(pytest), {PLAYWRIGHT_TESTS}(Playwright), "
+    f"{VITEST_TESTS}**/*{VITEST_SUFFIX}(vitest)"
+)
+# Test files elsewhere (backend/app, .test.tsx, other JS/TS tests) are read only to
+# report TC ids that would never be collected. Storybook stories are not read.
 SCAN_ROOTS = ("backend/", "frontend/", "packages/")
 _SKIP_DIRS = re.compile(r"(?:^|/)(?:node_modules|\.venv|site-packages)/")
 _PYTHON_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
@@ -46,8 +53,19 @@ _JS_TOKEN = re.compile(
     r"|\"(?:\\.|[^\"\\\n])*\"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?",
     re.DOTALL,
 )
-_RUNS = {None, "only"}  # test.skip / test.fixme are reported as SKIP
-_SPEC = {None, "only", "skip", "fixme"}
+# Modifiers that still declare one test: (runs, reported as SKIP). Anything else
+# (describe, step, each, skipIf, ...) does not carry a collected title.
+_PLAYWRIGHT_SPEC = {None: True, "only": True, "skip": False, "fixme": False}
+_VITEST_SPEC = {
+    None: True,
+    "only": True,
+    "concurrent": True,
+    "sequential": True,
+    "skip": False,
+    "todo": False,
+}
+# Expected failures are reported as passing when they fail.
+_EXPECTED_FAILURE = {"fail", "fails"}
 _PYTEST_SKIP = re.compile(r"\b(?:skip|skipif|xfail)\b")
 
 
@@ -75,8 +93,8 @@ def pytest_form(tc: str = "TC-07") -> str:
     return f"pytest `test_tc_{tc.removeprefix('TC-')}_<설명>`"
 
 
-def playwright_form(tc: str = "TC-07") -> str:
-    return f'Playwright `test("{tc} <설명>", ...)`'
+def title_form(tc: str = "TC-07") -> str:
+    return f'Playwright·vitest `test("{tc} <설명>", ...)`'
 
 
 def is_test_file(path: str) -> bool:
@@ -87,8 +105,12 @@ def is_test_file(path: str) -> bool:
     return path.startswith(SCAN_ROOTS) and bool(_JS_FILE.search(path))
 
 
+def is_vitest(path: str) -> bool:
+    return path.startswith(VITEST_TESTS) and path.endswith(VITEST_SUFFIX)
+
+
 def is_collected(path: str) -> bool:
-    return path.startswith((PYTHON_TESTS, PLAYWRIGHT_TESTS))
+    return path.startswith((PYTHON_TESTS, PLAYWRIGHT_TESTS)) or is_vitest(path)
 
 
 @dataclass(frozen=True)
@@ -220,6 +242,9 @@ def _scan_js(path: str, text: str) -> tuple[list[TaggedTest], list[NameProblem]]
     line_of = _line_finder(text)
     code, strings = _js_code(text)
     string_starts = [start for start, _ in strings]
+    vitest = is_vitest(path)
+    spec_modifiers = _VITEST_SPEC if vitest else _PLAYWRIGHT_SPEC
+    spec_functions = {"test", "it"} if vitest else {"test"}
     tagged: list[TaggedTest] = []
     problems: list[NameProblem] = []
     for match in _JS_CALL.finditer(code):
@@ -231,20 +256,22 @@ def _scan_js(path: str, text: str) -> tuple[list[TaggedTest], list[NameProblem]]
         if not (found or NEAR_MISS.search(title)):
             continue
         line = line_of(match.start())
-        if function == "test" and first in _SPEC and second is None:
-            form = playwright_form(found[0] if found else "TC-07")
-            result = _tagged_or_problem(path, line, title, found, form, first in _RUNS)
+        if function in spec_functions and first in spec_modifiers and second is None:
+            form = title_form(found[0] if found else "TC-07")
+            result = _tagged_or_problem(
+                path, line, title, found, form, spec_modifiers[first]
+            )
             if isinstance(result, TaggedTest):
                 tagged.append(result)
             elif result:
                 problems.append(result)
             continue
+        called = ".".join(filter(None, (function, first, second)))
         if not is_collected(path):
             reason = f"이 위치의 테스트 결과는 수집되지 않습니다. TC 테스트는 {LOCATIONS}에 두세요"
-        elif function == "test" and first == "fail" and second is None:
-            reason = "test.fail()은 실패를 기대하는 테스트라 실패해도 통과로 기록됩니다. TC는 test()에 붙이세요"
+        elif first in _EXPECTED_FAILURE and second is None:
+            reason = f"{called}()은 실패를 기대하는 테스트라 실패해도 통과로 기록됩니다. TC는 test()에 붙이세요"
         else:
-            called = ".".join(filter(None, (function, first, second)))
             reason = f"{called}() 제목의 TC ID는 수집되지 않습니다. 각 test() 제목에 붙이세요"
         problems.append(NameProblem(path, line, title, reason))
     return tagged, problems

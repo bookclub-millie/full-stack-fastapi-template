@@ -28,6 +28,7 @@
     ".storybook",
     "playwright.config.ts",
     "vitest.config.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "evidence-reporter.ts"
   ]
 }

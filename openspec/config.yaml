@@ -8,7 +8,7 @@ context: |
   All artifacts must be written in Korean.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
 
-  스택: FastAPI + SQLModel + PostgreSQL(backend/), React + TypeScript + Vite + KDS(@kds/ui)(frontend/, packages/ui/), pytest(backend/tests/), Playwright E2E(frontend/tests/e2e/).
+  스택: FastAPI + SQLModel + PostgreSQL(backend/), React + TypeScript + Vite + KDS(@kds/ui)(frontend/, packages/ui/), pytest(backend/tests/), Playwright E2E(frontend/tests/e2e/), vitest 단위(frontend/src/**/*.test.ts).
   평가 문서(docs/*.md, README.md)는 REQ → AC → Issue·코드 → TC → 실제 결과로 이어져야 한다. 계획·예시·실행하지 않은 시험을 완료로 기록하지 않는다.
   ID는 저장소 전체에서 하나씩 증가한다: REQ-xx·AC-xx(docs/prd.md), FLOW-xx(docs/experience.md), TC-xx(docs/e2e-test.md), SEC-xx(docs/security-compliance.md, 주최 측 docs/security-policy.md 기준). 새 번호를 정하기 전에 해당 문서를 읽고 가장 큰 번호의 다음 번호를 쓴다.
 
@@ -26,7 +26,7 @@ rules:
     - 저장소 전체에 영향을 주는 결정이면 ADR(docs/adr/000-template.md 복사)과 docs/arch.md 주요 결정 표의 행을 tasks에 넣는다.
   tasks:
     - "마지막 작업 그룹은 `## N. 문서·근거`로 두고 다음을 넣는다: docs/prd.md 추적표에 REQ·AC 행 추가(상태 `계획`), 사용자에게 보이는 변경이면 docs/experience.md에 FLOW 행 추가, SEC를 연결한 시나리오가 있으면 docs/security-compliance.md 행 갱신."
-    - "AC마다 TC ID를 이름에 단 테스트를 작성하는 작업을 해당 구현 그룹 안에 한 줄씩 넣고, 줄에 TC·AC·파일·테스트 이름과 시나리오 행 추가를 함께 적는다: `- [ ] 2.3 TC-07 (AC-07) backend/tests/api/routes/test_items.py::test_tc_07_<설명> 작성, docs/e2e-test.md 테스트 시나리오에 TC-07 행 추가` 또는 `- [ ] 2.4 TC-08 (AC-08) frontend/tests/e2e/items.spec.ts::\"TC-08 <설명>\" 작성, …`. TC를 단 테스트는 시나리오 행과 같은 커밋에 있어야 검사를 통과한다. 결과가 수집되는 위치는 backend/tests(pytest)와 frontend/tests/e2e(Playwright)뿐이다. 자동화할 수 없는 AC는 시나리오 행의 종류 칸을 정확히 `수동`으로 적는다(수동 TC는 결과가 수집되지 않아 REQ 완료의 근거가 되지 않는다)."
+    - "AC마다 TC ID를 이름에 단 테스트를 작성하는 작업을 해당 구현 그룹 안에 한 줄씩 넣고, 줄에 TC·AC·파일·테스트 이름과 시나리오 행 추가를 함께 적는다: `- [ ] 2.3 TC-07 (AC-07) backend/tests/api/routes/test_items.py::test_tc_07_<설명> 작성, docs/e2e-test.md 테스트 시나리오에 TC-07 행 추가` 또는 `- [ ] 2.4 TC-08 (AC-08) frontend/tests/e2e/items.spec.ts::\"TC-08 <설명>\" 작성, …`. TC를 단 테스트는 시나리오 행과 같은 커밋에 있어야 검사를 통과한다. 결과가 수집되는 위치는 backend/tests(pytest), frontend/tests/e2e(Playwright), frontend/src/**/*.test.ts(vitest `it(\"TC-09 <설명>\", ...)`)뿐이다. 자동화할 수 없는 AC는 시나리오 행의 종류 칸을 정확히 `수동`으로 적는다(수동 TC는 결과가 수집되지 않아 REQ 완료의 근거가 되지 않는다)."
 
 operations:
   apply:

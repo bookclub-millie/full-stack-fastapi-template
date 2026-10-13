@@ -5,8 +5,9 @@
 
 Reads the CI runs for that commit with the `gh` CLI (your login), downloads the
 test reports they uploaded (pytest JUnit XML from Test Backend, Playwright JSON
-from Playwright Tests), maps test names with a TC id (pytest `test_tc_01_...`,
-Playwright `TC-01 ...`; TC-1 and TC-01 are the same TC) to PASS / FAIL / SKIP,
+from Playwright Tests, vitest JSON from Frontend Quality), maps test names
+with a TC id (pytest `test_tc_01_...`, Playwright and vitest `TC-01 ...`; TC-1
+and TC-01 are the same TC) to PASS / FAIL / SKIP,
 and prints one row per TC for the 실행 결과 table. Copy the rows as they are;
 a TC that did not run is not printed and stays 미검증.
 See docs/adr/001-openspec-docs-traceability.md.
@@ -33,6 +34,7 @@ SOURCES = (
     # (workflow name, artifact name, report file, parser key)
     ("Test Backend", "junit-backend", "junit.xml", "junit"),
     ("Playwright Tests", "playwright-results", "results.json", "playwright"),
+    ("Frontend Quality", "frontend-unit-results", "unit.json", "vitest"),
 )
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 ORDER = {"FAIL": 0, "PASS": 1, "SKIP": 2}
@@ -101,6 +103,27 @@ def parse_playwright(text: str) -> tuple[list[TestResult], int]:
 
     for suite in json.loads(text).get("suites", []):
         walk(suite)
+    return results, untagged
+
+
+def parse_vitest(text: str) -> tuple[list[TestResult], int]:
+    """frontend/evidence-reporter.ts output. The TC id comes from the test's own
+    title, not its describe blocks. Expected failures (`fails`) and tests that
+    passed only after a retry are FAIL, as in the Playwright parser."""
+    results, untagged = [], 0
+    for test in json.loads(text).get("tests", []):
+        tc = tcnames.title_tc(str(test.get("title", "")))
+        if not tc:
+            untagged += 1
+            continue
+        state = test.get("state")
+        if state == "skipped":
+            status = "SKIP"
+        elif state == "passed" and not test.get("fails") and not test.get("flaky"):
+            status = "PASS"
+        else:  # failed, pending, `fails`, or flaky
+            status = "FAIL"
+        results.append(TestResult(tc, str(test.get("fullName", "")), status))
     return results, untagged
 
 
@@ -191,7 +214,11 @@ def collect(repo: str, sha: str) -> tuple[list[Evidence], list[str]]:
             if not report.is_file():
                 warnings.append(f"{workflow}: {artifact} 안에 {filename}이 없습니다")
                 continue
-            parse = parse_junit if kind == "junit" else parse_playwright
+            parse = {
+                "junit": parse_junit,
+                "playwright": parse_playwright,
+                "vitest": parse_vitest,
+            }[kind]
             results, untagged = parse(report.read_text(encoding="utf-8"))
         if untagged:
             warnings.append(

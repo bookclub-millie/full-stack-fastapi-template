@@ -22,6 +22,7 @@ jobs:
       contents: read
       issues: read # openspec Issue counts
       checks: read # CI results of the commit
+      statuses: read # harness/checks and harness/ack are commit statuses
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

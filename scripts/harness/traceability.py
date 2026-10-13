@@ -279,7 +279,7 @@ def check_tests(
                 skipped = [tc for tc in missing if tc in tagged]
                 problem = (
                     f"{change.id}의 {ac}: {', '.join(missing)}를 확인하는 실행되는 테스트가 없습니다 "
-                    f"({tcnames.pytest_form(missing[0])} 또는 {tcnames.playwright_form(missing[0])}, "
+                    f"({tcnames.pytest_form(missing[0])} 또는 {tcnames.title_form(missing[0])}, "
                     f"위치: {tcnames.LOCATIONS})"
                     + (
                         f". 건너뛰는 테스트만 있음: {', '.join(skipped)}"
@@ -305,7 +305,7 @@ def check_tests(
                 + (
                     f" (있는 곳: {', '.join(places)}). 테스트를 옮기거나 tasks.md 경로를 고치세요"
                     if places
-                    else f". 위치({tcnames.LOCATIONS})와 이름({tcnames.pytest_form(tc)}, {tcnames.playwright_form(tc)})을 확인하세요"
+                    else f". 위치({tcnames.LOCATIONS})와 이름({tcnames.pytest_form(tc)}, {tcnames.title_form(tc)})을 확인하세요"
                 ),
             )
 
