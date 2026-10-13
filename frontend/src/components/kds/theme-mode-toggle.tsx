@@ -1,7 +1,6 @@
-import { Moon, Sun } from "lucide-react"
-
-import { useTheme } from "@/components/theme-provider"
 import { Button } from "@kds/ui/components/button"
+import { Moon, Sun } from "lucide-react"
+import { useTheme } from "@/components/theme-provider"
 
 export function ThemeModeToggle() {
   const { setTheme, resolvedTheme } = useTheme()

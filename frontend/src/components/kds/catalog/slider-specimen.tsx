@@ -1,6 +1,5 @@
-import { useState } from "react"
-
 import { Slider } from "@kds/ui/components/slider"
+import { useState } from "react"
 import { Specimen } from "./specimen"
 
 const getSpacingAriaLabel = () => "간격 크기"
@@ -21,7 +20,7 @@ export function SliderSpecimen() {
           max={100}
           onValueChange={(nextValue) =>
             setValue(
-              typeof nextValue === "number" ? nextValue : (nextValue[0] ?? 0)
+              typeof nextValue === "number" ? nextValue : (nextValue[0] ?? 0),
             )
           }
           value={[value]}

@@ -1,6 +1,3 @@
-import { Layers, Palette } from "lucide-react"
-
-import { Specimen } from "./specimen"
 import {
   Accordion,
   AccordionContent,
@@ -53,7 +50,14 @@ import {
   TableHeader,
   TableRow,
 } from "@kds/ui/components/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@kds/ui/components/tabs"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@kds/ui/components/tabs"
+import { Layers, Palette } from "lucide-react"
+import { Specimen } from "./specimen"
 
 export function SurfaceSpecimens() {
   return (

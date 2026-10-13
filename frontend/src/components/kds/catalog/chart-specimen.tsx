@@ -1,6 +1,3 @@
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
-
-import { Specimen } from "./specimen"
 import type { ChartConfig } from "@kds/ui/components/chart"
 import {
   ChartContainer,
@@ -9,6 +6,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@kds/ui/components/chart"
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Specimen } from "./specimen"
 
 const chartData = [
   { family: "액션", components: 9 },

@@ -1,20 +1,3 @@
-import { lazy, Suspense, type ReactNode } from "react"
-import {
-  ArrowUpRight,
-  CircleCheck,
-  Layers,
-  Palette,
-  Sparkles,
-  TriangleAlert,
-} from "lucide-react"
-
-import { ThemeModeToggle } from "./theme-mode-toggle"
-import { ActionSpecimens } from "./catalog/actions"
-import { FeedbackSpecimens } from "./catalog/feedback"
-import { FormSpecimens } from "./catalog/forms"
-import { NavigationSpecimens } from "./catalog/navigation"
-import { SliderSpecimen } from "./catalog/slider-specimen"
-import { SurfaceSpecimens } from "./catalog/surfaces"
 import { Badge } from "@kds/ui/components/badge"
 import {
   Card,
@@ -24,17 +7,33 @@ import {
   CardTitle,
 } from "@kds/ui/components/card"
 import { Separator } from "@kds/ui/components/separator"
+import {
+  ArrowUpRight,
+  CircleCheck,
+  Layers,
+  Palette,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react"
+import { lazy, type ReactNode, Suspense } from "react"
+import { ActionSpecimens } from "./catalog/actions"
+import { FeedbackSpecimens } from "./catalog/feedback"
+import { FormSpecimens } from "./catalog/forms"
+import { NavigationSpecimens } from "./catalog/navigation"
+import { SliderSpecimen } from "./catalog/slider-specimen"
+import { SurfaceSpecimens } from "./catalog/surfaces"
+import { ThemeModeToggle } from "./theme-mode-toggle"
 
 const ChartSpecimen = lazy(() =>
   import("./catalog/chart-specimen").then((module) => ({
     default: module.ChartSpecimen,
-  }))
+  })),
 )
 
 const CarouselSpecimen = lazy(() =>
   import("./catalog/carousel-specimen").then((module) => ({
     default: module.CarouselSpecimen,
-  }))
+  })),
 )
 
 const sections = [
