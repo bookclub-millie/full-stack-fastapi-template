@@ -15,7 +15,7 @@
 | [보안 준수](security-compliance.md) | 보안 기준을 어떻게 지켰는가? | 정책별 적용 이유·코드·시험, 정상·거부·저장값, 미적용·예외·미검증의 사유·위험·검토 상태 |
 | [E2E·단위 테스트](e2e-test.md) | 어떻게 시험했고, 무엇이 확인됐는가? | REQ·AC·TC, 단위·E2E, 정상·오류·권한·저장 후 재조회, 환경·SHA·시각·결과·근거 |
 
-주요 설계 결정은 [ADR](adr/000-template.md)에 기록한다.
+주요 설계 결정은 [아키텍처의 주요 결정](arch.md#주요-결정) 표와 `adr/`에 기록한다(예: [ADR-001](adr/001-openspec-docs-traceability.md)). 새 결정은 [ADR 템플릿](adr/000-template.md)을 복사한다.
 
 ## 문서 관리
 
@@ -28,7 +28,7 @@
 ## 실행 안내
 
 - [저장소 README](../README.md)
-- [로컬 개발](../development.md)
+- [로컬 개발](local-development.md)
 - [프론트엔드](../frontend/README.md)
 - [백엔드](../backend/README.md)
 - [테스트 재현 절차](e2e-test.md#실행-환경과-재현-절차)
