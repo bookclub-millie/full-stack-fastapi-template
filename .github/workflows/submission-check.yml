@@ -1,0 +1,43 @@
+name: Submission Check
+
+# Pre-submission checklist for the commit you will submit to the portal:
+# docs present and filled, README links, evidence for completed REQs, test
+# results, development.md records, CI results and OpenSpec Issues.
+# See docs/adr/001-openspec-docs-traceability.md.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 제출할 커밋의 전체 40자 SHA (비우면 이 브랜치의 최신 커밋)
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read # openspec Issue counts
+      checks: read # CI results of the commit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check submission
+        env:
+          SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          JOB: ${{ github.job }}
+        run: |
+          set +e
+          sha="${SHA:-$(git rev-parse HEAD)}"
+          python3 -I scripts/harness/submission_check.py --repo . --sha "$sha" --github "$REPO" \
+            --ignore-check "$JOB" > "$RUNNER_TEMP/check.md"
+          code=$?
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/check.md"
+          exit "$code"

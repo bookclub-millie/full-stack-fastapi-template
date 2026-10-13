@@ -26,6 +26,9 @@ import lockfiles
 import registry
 import report
 import signals
+import traceability
+
+import openspec
 
 MIN_RELEASE_AGE = timedelta(days=7)
 YOUNG_PACKAGE_AGE = timedelta(days=30)
@@ -52,6 +55,13 @@ class Git:
         return self.run(
             "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}"
         ).strip()
+
+    def exists(self, sha: str) -> bool:
+        try:
+            self.run("cat-file", "-e", f"{sha}^{{commit}}")
+        except subprocess.CalledProcessError:
+            return False
+        return True
 
     def show(self, rev: str, path: str) -> str | None:
         try:
@@ -252,6 +262,63 @@ def check_supply_chain(
     return _check("supply-chain", title, status, failures), young
 
 
+def check_docs(
+    git: Git, base: str, head: str, changes: list[signals.FileChange]
+) -> tuple[dict, list[dict]]:
+    """OpenSpec ↔ docs traceability (ADR-001): (check, notes)."""
+    archived: set[str] = set()
+    touched: set[str] = set()
+    existed_at_base: dict[str, bool] = {}
+    for change in changes:
+        for path in filter(None, (change.path, change.old_path)):
+            if (found := openspec.locate(path)) is None:
+                continue
+            directory, change_id, is_archive = found
+            touched.add(change_id)
+            if is_archive and path == change.path and change.status in "AR":
+                # Archived by this PR only if the archive folder is new.
+                if directory not in existed_at_base:
+                    existed_at_base[directory] = (
+                        git.show(base, f"{directory}/proposal.md") is not None
+                    )
+                if not existed_at_base[directory]:
+                    archived.add(change_id)
+
+    files: dict[str, str] = {}
+    if touched:
+        listed = git.run(
+            "ls-tree", "-r", "--name-only", head, "--", openspec.CHANGES_DIR
+        )
+        for path in listed.splitlines():
+            found = openspec.locate(path)
+            if not (path.endswith(".md") and found and found[1] in touched):
+                continue
+            if (text := git.show(head, path)) is not None:
+                files[path] = text
+    docs = {
+        path: git.show(head, path)
+        for path in (
+            traceability.PRD,
+            traceability.E2E,
+            traceability.DEV,
+            traceability.EXPERIENCE,
+            traceability.SECURITY,
+        )
+    }
+    changed = {c.path for c in changes}
+    failures, notes = traceability.check(
+        docs,
+        openspec.changes_from_files(files),
+        archived=archived,
+        touched=touched,
+        claims_changed=bool(changed & {traceability.PRD, traceability.E2E}),
+        sha_exists=git.exists,
+    )
+    title = "문서 추적성 (archive 기록·근거 없는 완료)"
+    check = _check("docs", title, "fail" if failures else "pass", failures)
+    return check, [{"title": t, "items": items} for t, items in notes.items()]
+
+
 def analyze(
     repo: str,
     base: str,
@@ -276,6 +343,8 @@ def analyze(
         check_workflows(zizmor_exit, zizmor_log),
         supply_chain,
     ]
+    docs_check, notes = check_docs(git, base, head, changes)
+    checks.append(docs_check)
 
     found = signals.collect_signals(changes)
     if young:
@@ -290,6 +359,7 @@ def analyze(
         "signals": [{"id": s.id, "title": s.title, "items": s.items} for s in found],
         "deterministic_failed": any(c["status"] == "fail" for c in checks),
         "needs_ack": bool(found),
+        "notes": notes,
     }
 
 
