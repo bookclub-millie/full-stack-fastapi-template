@@ -31,8 +31,8 @@ LOCATIONS = (
     f"{PYTHON_TESTS}(pytest), {PLAYWRIGHT_TESTS}(Playwright), "
     f"{VITEST_TESTS}**/*{VITEST_SUFFIX}(vitest)"
 )
-# Test files elsewhere (backend/app, .test.tsx, Storybook) are read only to report
-# TC ids that would never be collected.
+# Test files elsewhere (backend/app, .test.tsx, other JS/TS tests) are read only to
+# report TC ids that would never be collected. Storybook stories are not read.
 SCAN_ROOTS = ("backend/", "frontend/", "packages/")
 _SKIP_DIRS = re.compile(r"(?:^|/)(?:node_modules|\.venv|site-packages)/")
 _PYTHON_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
@@ -87,12 +87,6 @@ def pytest_tc(name: str) -> str | None:
 def title_tc(title: str) -> str | None:
     match = TC_ID.search(title)
     return tc_id(match.group(1)) if match else None
-
-
-def vitest_tc(name: str) -> str | None:
-    """vitest JUnit names are `describe > title`; the title's id is the last one."""
-    found = ids(name)
-    return found[-1] if found else None
 
 
 def pytest_form(tc: str = "TC-07") -> str:

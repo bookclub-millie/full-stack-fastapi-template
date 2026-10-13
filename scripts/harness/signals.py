@@ -92,6 +92,7 @@ SKIP_MARKER = re.compile(
     r"pytest\.mark\.(?:skip|skipif|xfail)\b|pytest\.(?:skip|xfail|importorskip)\s*\("
     r"|unittest\.skip|@skip\b"
     r"|\b(?:test|it|describe)(?:\.describe)?\.(?:skip|only|fixme|todo|fails?)\s*\("
+    r"|\bfails\s*:\s*true\b"  # vitest test options: { fails: true }
     r"|\b[xf](?:it|describe)\s*\("  # jasmine/jest-style focused or excluded tests
 )
 SUPPRESSION = re.compile(

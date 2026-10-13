@@ -4,8 +4,13 @@ from pathlib import Path
 from unittest import mock
 
 import collect_evidence
-import tcnames
-from collect_evidence import merge, parse_junit, parse_playwright, render_rows
+from collect_evidence import (
+    merge,
+    parse_junit,
+    parse_playwright,
+    parse_vitest,
+    render_rows,
+)
 
 SHA = "b" * 40
 JUNIT = """<?xml version="1.0" encoding="utf-8"?>
@@ -84,17 +89,38 @@ class ParseTest(unittest.TestCase):
         )
         self.assertEqual(untagged, 1)
 
-    def test_vitest_names_carry_describe_blocks(self) -> None:
-        report = """<testsuites><testsuite name="src/a.test.ts">
-  <testcase classname="src/a.test.ts" name="TC-02 묶음 &gt; TC-05 통과"/>
-  <testcase classname="src/a.test.ts" name="묶음 &gt; TC-06 실패"><failure message="x"/></testcase>
-  <testcase classname="src/a.test.ts" name="묶음 &gt; TC-07 건너뜀"><skipped/></testcase>
-  <testcase classname="src/a.test.ts" name="묶음 &gt; 이름 없음"/>
-</testsuite></testsuites>"""
-        results, untagged = parse_junit(report, tcnames.vitest_tc)
+    def test_vitest_reporter_output(self) -> None:
+        # Shape written by frontend/evidence-reporter.ts (checked with vitest 4.1).
+        tests = [
+            ("TC-05 통과", "passed", False, False),
+            ("TC-06 실패", "failed", False, False),
+            ("TC-07 건너뜀", "skipped", False, False),
+            ("TC-09 옵션 fails", "passed", True, False),
+            ("TC-10 재시도 후 통과", "passed", False, True),
+            ("평범한 제목", "passed", False, False),  # describe 'TC-02 each 1'
+        ]
+        report = {
+            "tests": [
+                {
+                    "title": title,
+                    "fullName": f"묶음 > {title}",
+                    "state": state,
+                    "fails": fails,
+                    "flaky": flaky,
+                }
+                for title, state, fails, flaky in tests
+            ]
+        }
+        results, untagged = parse_vitest(json.dumps(report))
         self.assertEqual(
             [(r.tc, r.status) for r in results],
-            [("TC-05", "PASS"), ("TC-06", "FAIL"), ("TC-07", "SKIP")],
+            [
+                ("TC-05", "PASS"),
+                ("TC-06", "FAIL"),
+                ("TC-07", "SKIP"),
+                ("TC-09", "FAIL"),
+                ("TC-10", "FAIL"),
+            ],
         )
         self.assertEqual(untagged, 1)
 
@@ -161,6 +187,13 @@ class CollectTest(unittest.TestCase):
                     "html_url": "u2",
                     "created_at": "t2",
                 },
+                {
+                    "id": 4,
+                    "name": "Frontend Quality",
+                    "status": "completed",
+                    "html_url": "u4",
+                    "created_at": "t4",
+                },
             ]
         }
 
@@ -169,15 +202,22 @@ class CollectTest(unittest.TestCase):
                 self.assertIn("--paginate", args)
                 return json.dumps([runs])  # --slurp: one list entry per page
             if args[:2] == ("run", "download"):
+                target = Path(args[args.index("-D") + 1])
+                if args[args.index("-n") + 1] == "frontend-unit-results":
+                    self.assertEqual(args[2], "4")
+                    report = {"tests": [{"title": "TC-04 단위", "state": "passed"}]}
+                    (target / "unit.json").write_text(json.dumps(report))
+                    return ""
                 self.assertEqual(args[2], "3")  # the latest run wins
-                Path(args[args.index("-D") + 1], "junit.xml").write_text(JUNIT)
+                (target / "junit.xml").write_text(JUNIT)
                 return ""
             raise AssertionError(args)
 
         with mock.patch.object(collect_evidence, "_gh", fake_gh):
             evidence, warnings = collect_evidence.collect("o/r", SHA)
-        self.assertEqual([e.tc for e in evidence], ["TC-01", "TC-02", "TC-03"])
+        self.assertEqual([e.tc for e in evidence], ["TC-01", "TC-02", "TC-03", "TC-04"])
         self.assertEqual(evidence[0].sources, [("Test Backend", "u3", "t3")])
+        self.assertEqual(evidence[3].sources, [("Frontend Quality", "u4", "t4")])
         self.assertIn("Playwright Tests: 아직 실행 중입니다 (u2)", warnings)
         self.assertIn(
             "Test Backend: TC ID가 없는 테스트 1개는 집계하지 않았습니다", warnings

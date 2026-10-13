@@ -128,6 +128,7 @@ class TestIntegrityTest(unittest.TestCase):
             "test.describe.fixme('x', () => {})",
             "test.fail('a', async () => {})",
             "it.fails('a', () => {})",
+            "it('a', { fails: true }, () => {})",
             "it.only('a', () => {})",
             "xit('a', () => {})",
             "fdescribe('a', () => {})",

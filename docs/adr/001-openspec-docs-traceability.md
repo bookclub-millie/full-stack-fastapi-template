@@ -82,7 +82,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 
 ### 5. 증거 수집 (`scripts/harness/collect_evidence.py`)
 
-- CI가 테스트 결과를 남긴다. `test-backend`는 pytest `--junitxml` 결과를, `playwright`는 JSON reporter 결과를, Frontend Quality는 vitest JUnit 결과를 artifact로 올린다.
+- CI가 테스트 결과를 남긴다. `test-backend`는 pytest `--junitxml` 결과를, `playwright`는 JSON reporter 결과를, Frontend Quality는 `frontend/evidence-reporter.ts`가 쓰는 vitest 결과(JSON)를 artifact로 올린다.
 - 도구는 지정한 커밋(기본 master HEAD)의 실행과 artifact를 `gh`로 받아, TC ID별 PASS/FAIL/SKIP, 40자 SHA, 실행 시각, 실행 링크를 `e2e-test.md` 실행 결과 표 형식으로 출력한다.
 - 에이전트와 사람은 이 출력만 문서에 옮긴다. 실행하지 않은 TC는 출력에 없으므로 미검증으로 남는다.
 
@@ -122,7 +122,8 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
   3. 추적성 검사, 증거 수집(테스트 결과 artifact 포함), 제출 점검
 - 표 파싱은 문서 템플릿의 열 이름(`REQ`, `상태`, `TC` 등)에 의존한다. 열 이름을 바꾸면 검사도 고쳐야 한다.
 - TC 결과는 `backend/tests`·`frontend/tests/e2e`·`frontend/src/**/*.test.ts`에서 테스트 이름에 TC ID를 단 경우에만 수집된다. Storybook 상호작용 테스트는 이름이 story 이름에서 나와 수집하지 않는다.
-- vitest 결과를 내는 Frontend Quality는 프론트 관련 파일이 바뀐 커밋에서만 돈다. JUnit에는 기대 실패(`it.fails`) 표시가 없어 수집기가 구분하지 못하므로, 정적 검사가 TC를 단 `it.fails`를 막는다.
+- vitest 결과를 내는 Frontend Quality는 프론트 관련 파일이 바뀐 커밋에서만 돈다(문서만 바꾼 커밋은 `workflow_dispatch`로 돌린다). JUnit은 기대 실패(`fails`)와 재시도 후 통과를 그냥 통과로 적기 때문에, 저장소의 reporter가 테스트 자신의 제목과 이 두 표시를 JSON으로 남기고 수집기는 둘 다 FAIL로 기록한다. 정적 검사는 TC를 단 `it.fails`를 막는다.
+- `it.each`·`it.for`·`it.skipIf`·`it.runIf`·`test.extend`로 만든 테스트의 제목은 수집되지만 정적 검사(시나리오 행·위치)는 읽지 못한다. AC의 archive 검사는 문자 그대로의 제목만 세므로 이런 테스트만으로는 통과하지 않는다.
 - 자동화할 수 없는 시험은 종류가 정확히 `수동`인 TC로 둘 수 있다. 수집 결과가 없으므로 미검증으로 남고, 근거 없는 완료 검사도 수동 TC의 PASS 행을 근거로 세지 않는다.
 - 테스트 이름 검사는 문자 그대로의 제목만 읽는다. 변수·반복문으로 만든 제목, `test`를 다른 이름으로 바꿔 부른 호출, 게이트의 Python이 해석하지 못하는 문법의 파일(이 경우 `def test…` 줄만 읽음)은 정확히 알아보지 못한다.
 - 이 템플릿 저장소는 Issues가 꺼져 있어 Issue 동기화의 실제 동작은 팀 저장소의 첫 실행에서 확인한다.
