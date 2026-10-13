@@ -79,8 +79,9 @@ def render(report: dict) -> str:
         lines += [
             "",
             (
-                f"PR 작성자가 아닌 write 권한자가 변경 이유를 확인하고 `{ACK_LABEL}` 라벨을 붙이면 통과합니다. "
-                "새 커밋이 push되면 라벨이 자동으로 해제되므로 다시 확인해야 합니다."
+                f"PR 작성자가 아닌 write 권한자가 변경 이유를 확인하고 `{ACK_LABEL}` 라벨을 붙이면 통과합니다 "
+                f"(체크박스가 아니라 PR 오른쪽 **Labels**에서 `{ACK_LABEL}` 선택, 또는 `gh pr edit <PR 번호> --add-label {ACK_LABEL}`). "
+                "새 커밋이 push되면 라벨이 자동으로 해제되므로, 수정을 마친 뒤에 붙이고 push 후에는 다시 확인해야 합니다."
             ),
         ]
     if report.get("notes"):

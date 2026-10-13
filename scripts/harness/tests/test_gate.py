@@ -264,6 +264,66 @@ class GateTest(unittest.TestCase):
         report = self.analyze(self.commit("record"))
         self.assertEqual(self.check(report, "docs")["status"], "pass")
 
+    def test_tc_names_and_archive_coverage(self) -> None:
+        dev = (
+            "## AI 활용과 검증\n\n| Issue | 담당자 | AI 도구·사용 목적 | 변경 코드·활용 기록 | 검증·발견 문제 | 수정·재시험 근거 |\n"
+            "|---|---|---|---|---|---|\n| #3 (foo) | gray | Claude Code 구현 | PR #7 | 경계값 누락 | 재실행 |\n"
+        )
+        e2e = (
+            "## 테스트 시나리오\n\n| TC | REQ·AC·FLOW | 종류 | 사전 조건 | 입력·행동 | 예상 결과 | 실행 명령 |\n"
+            "|---|---|---|---|---|---|---|\n| TC-01 | REQ-01 · AC-01 | 단위 | | | | |\n"
+        )
+        spec = "### Requirement: REQ-01 등록\n\n#### Scenario: AC-01 거부\n\n- **WHEN** x\n- **THEN** y\n"
+        self.write(
+            {
+                "docs/development.md": dev,
+                "docs/e2e-test.md": e2e,
+                "openspec/changes/foo/proposal.md": "# Foo\n요구사항: REQ-01\n",
+                "openspec/changes/foo/specs/todo/spec.md": spec,
+            }
+        )
+        self.base = self.commit("propose")
+
+        # A changed test whose TC has no scenario row fails.
+        self.write({"backend/tests/test_a.py": "def test_tc_02_new():\n    assert 1\n"})
+        docs = self.check(self.analyze(self.commit("orphan")), "docs")
+        self.assertEqual(docs["status"], "fail")
+        self.assertIn("backend/tests/test_a.py:1 TC-02", docs["items"][0])
+
+        # Archiving without a test for AC-01's TC-01 fails.
+        self.write(
+            {
+                "backend/tests/test_a.py": "def test_a():\n    assert 1\n",
+                "openspec/changes/foo/proposal.md": None,
+                "openspec/changes/foo/specs/todo/spec.md": None,
+                "openspec/changes/archive/2026-10-14-foo/proposal.md": "# Foo\n요구사항: REQ-01\n",
+                "openspec/changes/archive/2026-10-14-foo/specs/todo/spec.md": spec,
+            }
+        )
+        docs = self.check(self.analyze(self.commit("archive")), "docs")
+        self.assertEqual(docs["status"], "fail")
+        self.assertIn("TC-01를 확인하는 실행되는 테스트가 없습니다", docs["items"][0])
+
+        self.write(
+            {"backend/tests/test_a.py": "def test_tc_01_reject():\n    assert 1\n"}
+        )
+        self.assertEqual(
+            self.check(self.analyze(self.commit("test")), "docs")["status"], "pass"
+        )
+
+    def test_test_files_with_odd_names_are_read(self) -> None:
+        odd = "backend/tests/x\nbackend/tests/test_hidden.py"
+        self.write(
+            {
+                odd: "def testTC01():\n    assert 1\n",
+                "backend/tests/test_b.py": "def testTC02():\n    assert 1\n",
+            }
+        )
+        items = self.check(self.analyze(self.commit("odd")), "docs")["items"]
+        self.assertEqual(len(items), 2)
+        self.assertTrue(any("testTC01" in item for item in items))
+        self.assertTrue(any("testTC02" in item for item in items))
+
     def test_editing_an_old_archive_is_not_archiving(self) -> None:
         self.write({"openspec/changes/archive/2026-01-01-old/proposal.md": "# Old\n"})
         self.base = self.commit("old archive")

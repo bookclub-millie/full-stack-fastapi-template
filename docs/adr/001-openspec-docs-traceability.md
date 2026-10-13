@@ -2,7 +2,7 @@
 
 - 상태: 채택
 - 날짜: 2026-10-14
-- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정)
+- 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정), #4·#5·#6(구현), TC 이름 검사 추가(2026-10-14)
 
 ## 맥락
 
@@ -23,7 +23,8 @@ OpenSpec을 작업 단위의 원천으로 두고, 문서(`docs/*.md`, `README.md
 | proposal.md 머리 | `요구사항: REQ-01[, REQ-02]`, `담당: @github-id`, `범위: 필수 \| 추가` | `prd.md` 추적표, `project-brief.md` 범위, Issue 담당자 |
 | spec의 Requirement | `### Requirement: REQ-01 <이름>` | `prd.md` REQ |
 | spec의 Scenario | `#### Scenario: AC-01 <이름>`. 사용자 흐름·보안 항목이면 본문에 `연결: FLOW-01, SEC-03` | `prd.md` AC, `experience.md` FLOW, `security-compliance.md` SEC |
-| 테스트 이름 | pytest `test_tc_01_...`, Playwright `test("TC-01 ...")` | `e2e-test.md` TC와 실행 결과 |
+| 테스트 이름 | pytest `test_tc_01_...`(`backend/tests`), Playwright `test("TC-01 ...")`(`frontend/tests/e2e`). 테스트 하나에 TC 하나. `TC-1`과 `TC-01`은 같은 TC | `e2e-test.md` TC와 실행 결과 |
+| tasks.md 테스트 작업 | `- [ ] 2.3 TC-07 (AC-07) <파일>::<테스트 이름>`. 파일 위치는 spec PR에서 리뷰한다 | 구현할 테스트, archive 때 실제 위치와 대조 |
 
 REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. 새 번호는 `prd.md`·`experience.md`·`e2e-test.md`에 있는 가장 큰 번호 다음을 쓴다.
 
@@ -31,8 +32,8 @@ REQ·AC·FLOW·TC 번호는 저장소 전체에서 하나씩 증가시킨다. �
 
 | 단계 | 할 일 |
 |---|---|
-| propose | tasks.md의 마지막 그룹을 **문서·근거**로 둔다: `prd.md` 추적표 행(상태 `계획`), `experience.md` FLOW, `e2e-test.md` TC 시나리오(상태 `미검증`), 해당하면 `security-compliance.md` SEC 행, 저장소 전체 결정이면 ADR. |
-| apply | 구현과 함께 TC ID를 단 테스트를 작성한다. 문서·근거 그룹 작업을 수행한다. |
+| propose | tasks.md의 마지막 그룹을 **문서·근거**로 둔다: `prd.md` 추적표 행(상태 `계획`), `experience.md` FLOW, 해당하면 `security-compliance.md` SEC 행, 저장소 전체 결정이면 ADR. TC 테스트 작업 줄은 구현 그룹 안에 두고, 같은 줄에서 `e2e-test.md` 시나리오 행을 함께 추가한다. |
+| apply | tasks.md에 적힌 파일·이름 그대로 TC ID를 단 테스트를 작성한다. 문서·근거 그룹 작업을 수행한다. 마치기 전에 `scripts/harness/tc_check.py`를 통과시킨다. |
 | archive | 증거 수집 도구(5번)의 출력으로 `e2e-test.md` 실행 결과를 채운다. `prd.md`·`experience.md`·`security-compliance.md` 상태를 실제 결과로 바꾼다. `development.md` "AI 활용과 검증"에 이 변경의 행을 추가한다. |
 
 `AGENTS.md`에는 "기능·동작 변경은 OpenSpec으로 시작한다, Issue는 손으로 만들거나 닫지 않는다, 결과는 증거 수집 도구의 출력만 옮긴다" 수준의 짧은 규칙만 둔다. 형식 규칙은 `openspec/config.yaml` 한 곳에만 둔다.
@@ -70,9 +71,14 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 |---|---|
 | 실패 (`harness/checks`) | PR이 변경을 archive했는데 `development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상 채움)이 없음 |
 | 실패 (`harness/checks`) | `prd.md`에서 상태가 `완료`인 REQ에 대해 `e2e-test.md` 실행 결과에 PASS와 40자 SHA가 있는 행이 하나도 없음 (근거 없는 완료) |
-| 참고 (차단 안 함) | 이번 PR이 건드린 변경에 대해: OpenSpec의 REQ·AC가 `prd.md`에 없음, 시나리오의 `연결` ID(FLOW·SEC)가 문서에 없음, archive된 변경의 AC에 TC가 없음, proposal의 `요구사항`·`담당` 누락. 이번 PR에서 바뀌지 않은 근거 없는 완료 |
+| 실패 (`harness/checks`) | PR이 바꾼 테스트 파일에 수집되지 않는 TC 표기가 있음(`TC01`·`testTC01`, TC 여러 개, `test.describe`·`test.step` 제목, 결과가 수집되지 않는 위치) |
+| 실패 (`harness/checks`) | PR이 바꾼 테스트의 TC가 `e2e-test.md` 테스트 시나리오에 없음. PR이 `e2e-test.md`를 바꿨다면 모든 테스트가 대상 |
+| 실패 (`harness/checks`) | PR이 archive한 변경의 AC에 TC 시나리오 행이 없거나, 종류가 `수동`이 아닌 TC에 그 이름의 테스트가 없음. tasks.md의 테스트 작업 줄(`TC-07 … <파일>::<테스트>`)에 적은 파일에 그 TC 테스트가 없음 |
+| 참고 (차단 안 함) | 이번 PR이 건드린 변경에 대해: OpenSpec의 REQ·AC가 `prd.md`에 없음, 시나리오의 `연결` ID(FLOW·SEC)가 문서에 없음, 이미 archive된 변경의 AC ↔ TC ↔ 테스트 누락, proposal의 `요구사항`·`담당` 누락. 테스트·`e2e-test.md`를 바꾼 PR에서: 테스트가 없는 TC 시나리오, 수동 TC만 있는 AC, 바뀌지 않은 테스트의 TC 문제. 이번 PR에서 바뀌지 않은 근거 없는 완료 |
 
-참고 항목은 게이트 코멘트에만 보인다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다.
+참고 항목은 게이트 코멘트에만 보인다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다. 예외는 두 가지다. TC를 단 테스트는 시나리오 행과 같은 커밋에 있어야 한다(테스트를 쓰는 순간 TC 번호가 정해져 있으므로). archive는 Issue를 completed로 닫으므로, archive하는 PR에서는 AC → TC → 실행되는 테스트가 끝까지 이어져야 한다. `skip`·`fixme`·`xfail`인 테스트는 실행되는 테스트로 세지 않는다.
+
+테스트 이름 검사는 테스트 코드를 실행하지 않는다. Python은 `ast.parse`로 pytest가 수집하는 함수만 읽고, JS·TS는 주석과 문자열 안을 건너뛴다. 같은 검사를 로컬에서 `python3 -I scripts/harness/tc_check.py`(prek 훅 `tc-check`)로 돌린다. 로컬 검사는 git에 추가된 모든 테스트 파일을 이번 변경으로 보고, 기준 브랜치(`origin/master` 등)에 아직 없는 archive만 이번 archive로 본다.
 
 ### 5. 증거 수집 (`scripts/harness/collect_evidence.py`)
 
@@ -90,6 +96,7 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
 - 필수 REQ의 상태와 근거, `미검증`·`대기` 개수
 - `openspec` Issue의 열림·닫힘 수
 - `docs/security-policy.md` 존재 여부
+- TC 연결(로컬 TC 검사와 같은 기준)
 
 ## 선택 이유
 
@@ -114,6 +121,8 @@ Harness Gate(기본 브랜치 코드, PR은 데이터로만 읽음)에 문서 �
   2. Issue 동기화
   3. 추적성 검사, 증거 수집(테스트 결과 artifact 포함), 제출 점검
 - 표 파싱은 문서 템플릿의 열 이름(`REQ`, `상태`, `TC` 등)에 의존한다. 열 이름을 바꾸면 검사도 고쳐야 한다.
-- TC 결과는 테스트 이름에 TC ID를 단 경우에만 수집된다.
+- TC 결과는 `backend/tests`·`frontend/tests/e2e`에서 테스트 이름에 TC ID를 단 경우에만 수집된다. `frontend/src`의 vitest 결과는 아직 수집하지 않는다.
+- 자동화할 수 없는 시험은 종류가 정확히 `수동`인 TC로 둘 수 있다. 수집 결과가 없으므로 미검증으로 남고, 근거 없는 완료 검사도 수동 TC의 PASS 행을 근거로 세지 않는다.
+- 테스트 이름 검사는 문자 그대로의 제목만 읽는다. 변수·반복문으로 만든 제목, `test`를 다른 이름으로 바꿔 부른 호출, 게이트의 Python이 해석하지 못하는 문법의 파일(이 경우 `def test…` 줄만 읽음)은 정확히 알아보지 못한다.
 - 이 템플릿 저장소는 Issues가 꺼져 있어 Issue 동기화의 실제 동작은 팀 저장소의 첫 실행에서 확인한다.
 - `docs/security-policy.md`는 주최 측이 제공한다. 이 결정은 그 내용을 바꾸지 않는다.

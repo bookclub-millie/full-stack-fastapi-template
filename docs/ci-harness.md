@@ -32,7 +32,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 |---|---|
 | 비밀값 스캔 | PR 커밋 범위(merge base..head)에서 gitleaks가 비밀값을 찾음. PR이 올린 `.gitleaksignore`·`gitleaks:allow` 주석은 무시한다. |
 | 워크플로 보안 | `.github/`가 바뀐 PR에서 zizmor가 문제를 찾음. 예: SHA로 고정하지 않은 action, 템플릿 인젝션, 과도한 권한. |
-| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 연결된 TC 중 **가장 최근 결과**가 PASS이고 저장소에 실제로 있는 커밋 SHA(40자)를 가진 것이 없음. |
+| 문서 추적성 | PR이 OpenSpec 변경을 archive했는데 `docs/development.md` "AI 활용과 검증"에 그 변경 ID가 든 행(4칸 이상)이 없음. PR이 `prd.md`·`e2e-test.md`를 바꿨는데 `완료`인 REQ에 연결된 TC 중 **가장 최근 결과**가 PASS이고 저장소에 실제로 있는 커밋 SHA(40자)를 가진 것이 없음(종류가 `수동`인 TC는 근거로 세지 않음). PR이 바꾼 테스트 파일에 수집되지 않는 TC 표기(`TC01`, `test.describe`·`test.fail` 제목, 결과가 수집되지 않는 위치 등)가 있음. PR이 바꾼 테스트(또는 PR이 `e2e-test.md`를 바꿨다면 모든 테스트)의 TC가 `e2e-test.md` 테스트 시나리오에 없음. PR이 archive한 변경의 AC에 TC 시나리오 행이 없거나, `수동`이 아닌 TC에 그 이름의 실행되는 테스트(`skip`·`fixme`·`xfail` 제외)가 없거나, AC ID가 없는 Scenario가 있음. tasks.md 테스트 작업 줄(`TC-07 … <파일>::<테스트>`)에 적은 파일에 그 TC 테스트가 없음. |
 | 공급망 | lockfile에 새로 들어온 버전이 출시 7일 미만임. 레지스트리 밖 소스(git·URL·사설 레지스트리)를 씀. 레지스트리에 없는 패키지가 있음. cooldown 설정을 끄거나 7일 미만으로 줄임. 레지스트리 조회에 실패해도 실패로 처리한다. |
 
 ## 사람 확인 신호 — `harness/ack`
@@ -51,7 +51,7 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 신호가 있으면 게이트가 PR에 요약 코멘트를 단다. 통과 절차는 다음과 같다.
 
 1. PR 작성자가 PR 설명에 변경 이유를 적는다.
-2. PR 작성자가 아닌, write 이상 권한을 가진 사람이 diff를 확인하고 `harness-ack` 라벨을 붙인다.
+2. PR 작성자가 아닌, write 이상 권한을 가진 사람이 diff를 확인하고 `harness-ack` 라벨을 붙인다. 체크박스가 아니라 PR 오른쪽 **Labels**에서 고르거나 `gh pr edit <PR 번호> --add-label harness-ack`를 쓴다. 수정이 남았으면 push를 마친 뒤에 붙인다.
 3. 게이트가 라벨을 붙인 사람을 검증하고 `harness/ack`를 통과로 바꾼다. 봇·앱이 붙인 라벨과 작성자 본인의 라벨은 인정하지 않는다.
 4. 이후 새 커밋이 push되면 라벨이 자동으로 해제된다. 새 diff를 다시 확인해야 한다.
 
@@ -67,17 +67,26 @@ ruleset은 이와 별도로 마지막 push를 한 사람이 아닌 사람의 승
 
 ## 문서 추적성 참고
 
-결정적 검사의 "문서 추적성" 외에, 이번 PR이 건드린 OpenSpec 변경에 대해 다음을 게이트 코멘트의 **참고 (차단 안 함)**에 보여 준다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다.
+결정적 검사의 "문서 추적성" 외에, 이번 PR이 건드린 OpenSpec 변경에 대해 다음을 게이트 코멘트의 **참고 (차단 안 함)**에 보여 준다. 작업 중에는 문서가 비어 있는 것이 정상이므로 막지 않는다. 단, TC를 단 테스트는 `e2e-test.md` 시나리오 행과 같은 커밋에 넣어야 한다.
 
 - OpenSpec의 REQ·AC가 `prd.md`에 없음
 - 시나리오의 `연결: FLOW-xx, SEC-xx`가 `experience.md`·`security-compliance.md`에 없음
-- archive된 변경의 AC에 `e2e-test.md` 테스트 시나리오가 없음
+- 이미 archive된 변경의 AC ↔ TC ↔ 테스트 누락(이번 PR이 archive하는 변경이면 실패)
+- 테스트가 없는 TC 시나리오, 수동 TC만 있는 AC, 이번 PR에서 바뀌지 않은 테스트의 TC 표기·시나리오 누락
 - proposal에 `요구사항`·`담당` 줄이 없음, ID 없는 Requirement·Scenario
 - 이번 PR에서 바뀌지 않은 `완료` 주장 중 근거가 없는 것
 
 ## 시험 결과 수집
 
-`test-backend`는 pytest JUnit 결과(`junit-backend`), Playwright는 JSON 결과(`playwright-results`)를 artifact로 30일 보관한다. 테스트 이름에 TC ID를 달면(pytest `test_tc_01_…`, Playwright `test("TC-01 …")`) 다음 명령이 `e2e-test.md` 실행 결과 표의 행을 출력한다.
+`test-backend`는 pytest JUnit 결과(`junit-backend`), Playwright는 JSON 결과(`playwright-results`)를 artifact로 30일 보관한다. 테스트 이름에 TC ID를 달면(pytest `test_tc_01_…`, Playwright `test("TC-01 …")`) 다음 명령이 `e2e-test.md` 실행 결과 표의 행을 출력한다. `TC-1`과 `TC-01`은 같은 TC로 본다.
+
+결과가 수집되는 테스트는 `backend/tests`(pytest)와 `frontend/tests/e2e`(Playwright)뿐이다. `frontend/src`의 vitest, `frontend/tests/visual` 등에 붙인 TC는 수집되지 않으므로 검사가 실패로 알린다. push 전에는 다음으로 확인한다(prek 훅 `tc-check`도 같은 검사를 한다).
+
+```bash
+python3 -I scripts/harness/tc_check.py
+```
+
+결과 행은 다음 명령으로 만든다.
 
 ```bash
 python3 scripts/harness/collect_evidence.py --sha <PR head의 40자 SHA>
@@ -100,6 +109,7 @@ Actions → **Submission Check** → Run workflow에서 제출할 40자 SHA를 �
 | 시험 결과 | | SHA가 있는 실행 결과가 없음 |
 | development.md 기록 | | archive된 변경의 기록 누락 |
 | OpenSpec | | archive 안 된 변경 |
+| TC 연결 | | 수집되지 않는 TC 표기, 시나리오에 없는 TC, archive된 변경의 AC에 TC 테스트 없음 |
 | 보안 | | `docs/security-policy.md` 없음, 미검증 항목 |
 | CI 검사 | 실패한 검사, `harness/checks`·`harness/ack` 실패 | 진행 중이거나 결과 없음(이 점검 job 자체는 제외) |
 | Issue | | 열린 openspec Issue |

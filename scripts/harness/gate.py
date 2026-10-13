@@ -26,6 +26,7 @@ import lockfiles
 import registry
 import report
 import signals
+import tcnames
 import traceability
 
 import openspec
@@ -68,6 +69,38 @@ class Git:
             return self.run("show", f"{rev}:{path}")
         except subprocess.CalledProcessError:
             return None
+
+    def ls_tree(self, rev: str, *paths: str) -> list[str]:
+        """File paths under `paths` at `rev`, read NUL-separated so any name is exact."""
+        out = self.run("ls-tree", "-r", "-z", "--name-only", rev, "--", *paths)
+        return [path for path in out.split("\0") if path]
+
+    def show_many(self, rev: str, paths: list[str]) -> dict[str, str]:
+        """Blob texts of many paths through one `git cat-file --batch`; missing ones are left out."""
+        # The batch protocol is line based; read the rare names with a line break one by one.
+        odd = [p for p in paths if "\n" in p or "\r" in p]
+        texts = {p: t for p in odd if (t := self.show(rev, p)) is not None}
+        plain = [p for p in paths if p not in texts and p not in odd]
+        if not plain:
+            return texts
+        out = subprocess.run(
+            ["git", "-C", self.repo, "cat-file", "--batch"],
+            input="".join(f"{rev}:{p}\n" for p in plain).encode(),
+            check=True,
+            capture_output=True,
+        ).stdout
+        pos = 0
+        for path in plain:
+            end = out.index(b"\n", pos)
+            header = out[pos:end].split()
+            pos = end + 1
+            if len(header) != 3 or not header[2].isdigit():
+                continue  # "<name> missing" or "ambiguous": no content follows
+            size = int(header[2])
+            if header[1] == b"blob":
+                texts[path] = out[pos : pos + size].decode("utf-8", errors="replace")
+            pos += size + 1
+        return texts
 
 
 def _parse_hunks(patch: str) -> tuple[list[str], list[str]]:
@@ -265,7 +298,7 @@ def check_supply_chain(
 def check_docs(
     git: Git, base: str, head: str, changes: list[signals.FileChange]
 ) -> tuple[dict, list[dict]]:
-    """OpenSpec ↔ docs traceability (ADR-001): (check, notes)."""
+    """OpenSpec ↔ docs ↔ TC-named tests traceability (ADR-001): (check, notes)."""
     archived: set[str] = set()
     touched: set[str] = set()
     existed_at_base: dict[str, bool] = {}
@@ -286,15 +319,16 @@ def check_docs(
 
     files: dict[str, str] = {}
     if touched:
-        listed = git.run(
-            "ls-tree", "-r", "--name-only", head, "--", openspec.CHANGES_DIR
+        files = git.show_many(
+            head,
+            [
+                path
+                for path in git.ls_tree(head, openspec.CHANGES_DIR)
+                if path.endswith(".md")
+                and (found := openspec.locate(path))
+                and found[1] in touched
+            ],
         )
-        for path in listed.splitlines():
-            found = openspec.locate(path)
-            if not (path.endswith(".md") and found and found[1] in touched):
-                continue
-            if (text := git.show(head, path)) is not None:
-                files[path] = text
     docs = {
         path: git.show(head, path)
         for path in (
@@ -305,16 +339,28 @@ def check_docs(
             traceability.SECURITY,
         )
     }
+    # Test sources are read as text to match TC ids; they are never run.
+    tests = git.show_many(
+        head,
+        [p for p in git.ls_tree(head, *tcnames.SCAN_ROOTS) if tcnames.is_test_file(p)],
+    )
     changed = {c.path for c in changes}
+    parsed = openspec.changes_from_files(files)
     failures, notes = traceability.check(
         docs,
-        openspec.changes_from_files(files),
+        parsed,
         archived=archived,
         touched=touched,
         claims_changed=bool(changed & {traceability.PRD, traceability.E2E}),
         sha_exists=git.exists,
     )
-    title = "문서 추적성 (archive 기록·근거 없는 완료)"
+    test_failures, test_notes = traceability.check_tests(
+        docs, tests, parsed, archived=archived, changed=changed
+    )
+    failures += test_failures
+    for note_title, items in test_notes.items():
+        notes.setdefault(note_title, []).extend(items)
+    title = "문서 추적성 (archive 기록·근거 없는 완료·TC 연결)"
     check = _check("docs", title, "fail" if failures else "pass", failures)
     return check, [{"title": t, "items": items} for t, items in notes.items()]
 

@@ -91,7 +91,7 @@ JS_EXPECT = re.compile(r"\bexpect(?:\.\w+)?\s*\(")
 SKIP_MARKER = re.compile(
     r"pytest\.mark\.(?:skip|skipif|xfail)\b|pytest\.(?:skip|xfail|importorskip)\s*\("
     r"|unittest\.skip|@skip\b"
-    r"|\b(?:test|it|describe)(?:\.describe)?\.(?:skip|only|fixme|todo)\s*\("
+    r"|\b(?:test|it|describe)(?:\.describe)?\.(?:skip|only|fixme|todo|fail)\s*\("
     r"|\b[xf](?:it|describe)\s*\("  # jasmine/jest-style focused or excluded tests
 )
 SUPPRESSION = re.compile(
