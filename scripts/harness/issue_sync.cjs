@@ -4,14 +4,20 @@
 //   active change   -> create the Issue, or refresh its managed part while open
 //   archived change -> fill in evidence; close as completed when required checks passed
 //   vanished change -> close as not planned
-//   closed Issue    -> never reopened (reopening lowers the progress rate)
+//   closed Issue    -> never reopened (reopening lowers the progress rate); a change
+//                      proposed again after its Issue was completed gets a new Issue
+// Only Issues this workflow created count: an Issue someone else opens with the
+// marker line is ignored.
 
 const LABEL = 'openspec';
+const BOT = 'github-actions[bot]';
 const MARKER = /^<!-- openspec-change: (\S+) -->/;
 const EVIDENCE_HEADING = '## 구현·검증 근거 (작업 후 추가)';
 const EVIDENCE_TEMPLATE = `${EVIDENCE_HEADING}\n커밋 주소:\n테스트 명령·결과·화면 경로:\n`;
+const EMPTY_TEMPLATE_LINE = /^(커밋 주소|테스트 명령·결과·화면 경로):\s*$/;
+const AUTO_START = '<!-- openspec-sync: evidence -->';
+const AUTO_END = '<!-- /openspec-sync: evidence -->';
 const PENDING_MARKER = '<!-- openspec-sync: evidence-pending -->';
-const AUTO_EVIDENCE = '<!-- openspec-sync: evidence -->';
 const MAX_NOT_PLANNED = 5;
 
 // Bodies edited in the web UI come back with CRLF line endings.
@@ -40,14 +46,14 @@ function tickAll(managed) {
   return managed.replace(/^- \[ \] /gm, '- [x] ');
 }
 
-// Lines a person added under the evidence heading (not the empty template lines).
-function humanEvidence(evidence) {
-  const auto = evidence.indexOf(AUTO_EVIDENCE);
-  const own = auto >= 0 ? evidence.slice(0, auto) : evidence;
-  return own
-    .split('\n')
-    .slice(1)
-    .filter((line) => line.trim() && !/^(커밋 주소|테스트 명령·결과·화면 경로):\s*$/.test(line.trim()));
+// Replace only the automatic block; whatever people wrote above or below it stays as is.
+function withAutoEvidence(evidence, lines) {
+  const block = [AUTO_START, ...lines, AUTO_END].join('\n');
+  const start = evidence.indexOf(AUTO_START);
+  const end = evidence.indexOf(AUTO_END);
+  if (start >= 0 && end > start) return evidence.slice(0, start) + block + evidence.slice(end + AUTO_END.length);
+  const own = evidence.split('\n').filter((line) => !EMPTY_TEMPLATE_LINE.test(line.trim()));
+  return `${own.join('\n').trimEnd()}\n${block}\n`;
 }
 
 module.exports = async function syncIssues({ github, context, core, plan, requiredChecks }) {
@@ -70,15 +76,17 @@ module.exports = async function syncIssues({ github, context, core, plan, requir
   } catch (error) {
     if (error.status !== 404) throw error;
     await github.rest.issues.createLabel({
-      owner, repo, name: LABEL, color: '1d76db', description: 'OpenSpec 변경과 동기화되는 개발 작업 Issue',
+      owner, repo, name: LABEL, color: '1d76db', description: 'OpenSpec 변경과 동기화되는 개발 작업 Issue (라벨을 지우지 마세요)',
     });
   }
 
   const byChange = new Map();
-  const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'all', per_page: 100 });
+  const issues = await github.paginate(github.rest.issues.listForRepo, {
+    owner, repo, state: 'all', labels: LABEL, per_page: 100,
+  });
   for (const issue of issues) {
-    if (issue.pull_request) continue;
-    const match = MARKER.exec(issue.body || '');
+    if (issue.pull_request || issue.user?.login !== BOT) continue;
+    const match = MARKER.exec(normalize(issue.body));
     if (!match) continue;
     if (!byChange.has(match[1])) byChange.set(match[1], []);
     byChange.get(match[1]).push(issue);
@@ -108,13 +116,17 @@ module.exports = async function syncIssues({ github, context, core, plan, requir
     return (await canAssign(author)) ? author : null;
   };
 
-  const upsertPendingComment = async (number, body) => {
+  const pendingComment = async (number) => {
     const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
-    const existing = comments.find((c) => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(PENDING_MARKER));
+    return comments.find((c) => c.user?.login === BOT && c.body?.startsWith(PENDING_MARKER));
+  };
+
+  const setPendingComment = async (number, body, { createIfMissing = true } = {}) => {
+    const existing = await pendingComment(number);
     const text = `${PENDING_MARKER}\n${body}`;
     if (existing?.body === text) return;
     if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: text });
-    else await github.rest.issues.createComment({ owner, repo, issue_number: number, body: text });
+    else if (createIfMissing) await github.rest.issues.createComment({ owner, repo, issue_number: number, body: text });
   };
 
   const checkResults = async (ref) => {
@@ -130,57 +142,74 @@ module.exports = async function syncIssues({ github, context, core, plan, requir
     });
   };
 
+  const closeNotPlanned = async (issue, reason) => {
+    await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: reason });
+    await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'not_planned' });
+    summary.notPlanned.push(issue.number);
+  };
+
   const complete = async (issue, change) => {
-    const { managed, evidence } = splitBody(issue.body);
     if (!change.archive_commit) {
-      await upsertPendingComment(issue.number, 'archive 커밋을 찾을 수 없어 완료 처리를 보류합니다.');
+      await setPendingComment(issue.number, 'archive 커밋을 찾을 수 없어 완료 처리를 보류합니다.');
       summary.pending.push(issue.number);
       return;
     }
+    const { managed, evidence } = splitBody(issue.body);
     const pr = await mergedPullFor(change.archive_commit);
     const results = await checkResults(pr ? pr.head.sha : change.archive_commit);
-    const lines = [
-      EVIDENCE_HEADING,
-      ...humanEvidence(evidence),
-      AUTO_EVIDENCE,
+    const passed = results.every((r) => r.conclusion === 'success');
+    const auto = [
       `커밋 주소: ${repoUrl}/commit/${change.archive_commit}`,
       ...(pr ? [`PR: #${pr.number}`] : []),
       '테스트 명령·결과·화면 경로:',
       ...results.map((r) => `- ${r.name}: ${r.conclusion}${r.url ? ` — ${r.url}` : ''}`),
       '- 시험 실행 기록: docs/e2e-test.md 실행 결과 · AI 활용 기록: docs/development.md',
     ];
-    const passed = results.every((r) => r.conclusion === 'success');
-    const body = joinBody(passed ? tickAll(managed) : managed, lines.join('\n'));
-    if (body !== normalize(issue.body)) await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
-    if (!passed) {
-      const failing = results.filter((r) => r.conclusion !== 'success').map((r) => `${r.name}: ${r.conclusion}`);
-      await upsertPendingComment(
-        issue.number,
-        `필수 검사가 모두 success가 아니라 완료 처리를 보류합니다 (${failing.join(', ')}). 다음 동기화 때 다시 확인합니다.`,
-      );
-      summary.pending.push(issue.number);
+    const body = joinBody(passed ? tickAll(managed) : managed, withAutoEvidence(evidence, auto));
+    if (passed) {
+      // Body and state in one call, so a failure can't leave a ticked-but-open Issue.
+      await github.rest.issues.update({ owner, repo, issue_number: issue.number, body, state: 'closed', state_reason: 'completed' });
+      await setPendingComment(issue.number, '필수 검사가 모두 success가 되어 완료로 닫았습니다.', { createIfMissing: false });
+      summary.completed.push(issue.number);
       return;
     }
-    await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
-    summary.completed.push(issue.number);
+    if (body !== normalize(issue.body)) await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
+    const failing = results.filter((r) => r.conclusion !== 'success').map((r) => `${r.name}: ${r.conclusion}`);
+    await setPendingComment(
+      issue.number,
+      `필수 검사가 모두 success가 아니라 완료 처리를 보류합니다 (${failing.join(', ')}). 다음 동기화 때 다시 확인합니다.`,
+    );
+    summary.pending.push(issue.number);
   };
 
   const planned = new Set(plan.changes.map((c) => c.id));
   for (const change of plan.changes) {
-    const existing = (byChange.get(change.id) || []).sort(
-      (a, b) => (a.state === 'open' ? 0 : 1) - (b.state === 'open' ? 0 : 1) || a.number - b.number,
-    );
-    let issue = existing[0];
+    const existing = byChange.get(change.id) || [];
+    const open = existing.filter((i) => i.state === 'open').sort((a, b) => a.number - b.number);
+    const closed = existing.filter((i) => i.state === 'closed');
+    let issue = open[0];
+
+    for (const duplicate of open.slice(1)) {
+      await closeNotPlanned(duplicate, `같은 OpenSpec 변경 \`${change.id}\`의 중복 Issue라 not planned로 닫습니다 (#${issue.number}에서 관리).`);
+    }
+
     if (!issue) {
+      const lastClosed = Math.max(0, ...closed.map((i) => Date.parse(i.closed_at) || 0));
+      const reproposed =
+        !change.archived &&
+        closed.length > 0 &&
+        closed.every((i) => i.state_reason === 'completed') &&
+        Date.parse(change.proposal_date) > lastClosed;
+      if (closed.length && !reproposed) {
+        summary.skipped.push(...closed.map((i) => i.number));
+        continue;
+      }
       const assignee = await assigneeFor(change);
       ({ data: issue } = await github.rest.issues.create({
         owner, repo, title: change.title, labels: [LABEL], body: joinBody(change.managed, EVIDENCE_TEMPLATE),
         ...(assignee ? { assignees: [assignee] } : {}),
       }));
       summary.created.push(issue.number);
-    } else if (issue.state === 'closed') {
-      summary.skipped.push(issue.number);
-      continue;
     } else {
       const { managed, evidence } = splitBody(issue.body);
       const body = joinBody(keepTicks(change.managed, managed), evidence);
@@ -201,12 +230,7 @@ module.exports = async function syncIssues({ github, context, core, plan, requir
     core.warning(`${vanished.length} Issues lost their OpenSpec change; close them by hand if that is intended.`);
   } else {
     for (const { id, issue } of vanished) {
-      await github.rest.issues.createComment({
-        owner, repo, issue_number: issue.number,
-        body: `OpenSpec 변경 \`${id}\`이 archive 없이 저장소에서 사라져 not planned로 닫습니다 (기준 커밋 ${context.sha}).`,
-      });
-      await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'not_planned' });
-      summary.notPlanned.push(issue.number);
+      await closeNotPlanned(issue, `OpenSpec 변경 \`${id}\`이 archive 없이 저장소에서 사라져 not planned로 닫습니다 (기준 커밋 ${context.sha}).`);
     }
   }
 
@@ -216,4 +240,4 @@ module.exports = async function syncIssues({ github, context, core, plan, requir
 
 module.exports.splitBody = splitBody;
 module.exports.keepTicks = keepTicks;
-module.exports.humanEvidence = humanEvidence;
+module.exports.withAutoEvidence = withAutoEvidence;

@@ -5,11 +5,12 @@ const assert = require('node:assert/strict');
 const syncIssues = require('../issue_sync.cjs');
 
 const REQUIRED = ['test-backend', 'test-frontend', 'alls-green-playwright'];
+const BOT = { login: 'github-actions[bot]' };
 const notFound = () => Object.assign(new Error('Not Found'), { status: 404 });
 
 function fakeGitHub({ issues = [], hasIssues = true, checks = {}, pulls = {}, assignable = ['gray'], comments = {} } = {}) {
   const state = {
-    issues: issues.map((i) => ({ state: 'open', title: '', comments: [], ...i })),
+    issues: issues.map((i) => ({ state: 'open', title: '', user: BOT, ...i })),
     labels: new Set(),
     comments,
     calls: [],
@@ -35,12 +36,12 @@ function fakeGitHub({ issues = [], hasIssues = true, checks = {}, pulls = {}, as
           if (!assignable.includes(assignee)) throw notFound();
         },
         create: async ({ title, body, assignees }) => {
-          const issue = { number: nextNumber++, title, body, assignees, state: 'open' };
+          const issue = { number: nextNumber++, title, body, assignees, state: 'open', user: BOT };
           state.issues.push(issue);
           state.calls.push(['create', issue.number]);
           return { data: { ...issue } };
         },
-        update: async ({ issue_number, ...fields }) => {
+        update: async ({ owner: _owner, repo: _repo, issue_number, ...fields }) => {
           Object.assign(find(issue_number), fields);
           state.calls.push(['update', issue_number, Object.keys(fields).sort().join(',')]);
           return { data: { ...find(issue_number) } };
@@ -136,6 +137,7 @@ test('archived change with passing checks is closed as completed with evidence',
   assert.deepEqual(summary.completed, [1]);
   assert.equal(issue.state, 'closed');
   assert.equal(issue.state_reason, 'completed');
+  assert.deepEqual(state.calls.at(-1), ['update', 1, 'body,state,state_reason']);
   assert.match(issue.body, /커밋 주소: https:\/\/github.com\/o\/r\/commit\/a1/);
   assert.match(issue.body, /PR: #9/);
   assert.match(issue.body, /- test-backend: success — u\/test-backend/);
@@ -210,4 +212,59 @@ test('ignores pull requests and Issues without the marker', async () => {
   const summary = await run(github, [change()]);
   assert.deepEqual(summary.created, [3]);
   assert.equal(state.issues.find((i) => i.number === 2).state, 'open');
+});
+
+test('Issues opened by someone else with the marker are ignored', async () => {
+  const { github, state } = fakeGitHub({
+    issues: [{ number: 1, user: { login: 'mallory' }, body: '<!-- openspec-change: add-todo -->' }],
+  });
+  const summary = await run(github, [change()]);
+  assert.deepEqual(summary.created, [2]);
+  assert.equal(state.issues[0].state, 'open');
+});
+
+test('evidence written below the automatic block survives later syncs', async () => {
+  const { github, state } = fakeGitHub({ checks: { a1: passing(['test-backend']) } });
+  await run(github, [change({ archived: true, archive_commit: 'a1' })]);
+  const issue = state.issues[0];
+  assert.equal(issue.state, 'open');
+  issue.body += '\n스크린샷: docs/img/todo.png\n\n추가 로그는 아래와 같다.\n';
+  await run(github, [change({ archived: true, archive_commit: 'a1' })]);
+  assert.match(issue.body, /<!-- \/openspec-sync: evidence -->\n+스크린샷: docs\/img\/todo.png\n\n추가 로그는 아래와 같다.\n$/);
+  assert.equal(issue.body.match(/openspec-sync: evidence -->/g).length, 2);
+});
+
+test('pending comment is updated when the Issue is finally completed', async () => {
+  const checks = { a1: passing(['test-backend']) };
+  const { github, state } = fakeGitHub({ checks });
+  await run(github, [change({ archived: true, archive_commit: 'a1' })]);
+  checks.a1 = passing();
+  await run(github, [change({ archived: true, archive_commit: 'a1' })]);
+  assert.equal(state.issues[0].state_reason, 'completed');
+  assert.equal(state.comments[1].length, 1);
+  assert.match(state.comments[1][0].body, /완료로 닫았습니다/);
+});
+
+test('a change proposed again after its Issue was completed gets a new Issue', async () => {
+  const done = { number: 1, state: 'closed', state_reason: 'completed', closed_at: '2026-10-01T00:00:00Z', body: '<!-- openspec-change: add-todo -->' };
+  const { github } = fakeGitHub({ issues: [done] });
+  const summary = await run(github, [change({ proposal_date: '2026-10-14T00:00:00+09:00' })]);
+  assert.deepEqual(summary.created, [2]);
+});
+
+test('an Issue a person closed as completed before archiving is left alone', async () => {
+  const done = { number: 1, state: 'closed', state_reason: 'completed', closed_at: '2026-10-14T12:00:00Z', body: '<!-- openspec-change: add-todo -->' };
+  const { github } = fakeGitHub({ issues: [done] });
+  const summary = await run(github, [change({ proposal_date: '2026-10-13T00:00:00+09:00' })]);
+  assert.deepEqual(summary.created, []);
+  assert.deepEqual(summary.skipped, [1]);
+});
+
+test('duplicate open Issues for one change are closed as not planned', async () => {
+  const marker = '<!-- openspec-change: add-todo -->';
+  const { github, state } = fakeGitHub({ issues: [{ number: 5, body: marker }, { number: 2, body: marker }] });
+  const summary = await run(github, [change()]);
+  assert.deepEqual(summary.notPlanned, [5]);
+  assert.equal(state.issues.find((i) => i.number === 2).state, 'open');
+  assert.match(state.comments[5][0].body, /#2에서 관리/);
 });

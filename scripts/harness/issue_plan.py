@@ -23,8 +23,11 @@ MARKER = "<!-- openspec-change: {id} -->"
 TEST_RESULT_ITEM = "정상·오류 테스트 결과를 남긴다"
 
 
-def first_added(repo: Path, path: str) -> str | None:
-    """Commit that first added `path` (renames count as adds)."""
+def added_commits(repo: Path) -> dict[str, tuple[str, str]]:
+    """Latest (sha, ISO date) that added each file under openspec/changes; renames count as adds.
+
+    One history walk for all changes instead of one per file.
+    """
     try:
         out = subprocess.run(
             [
@@ -34,17 +37,26 @@ def first_added(repo: Path, path: str) -> str | None:
                 "log",
                 "--no-renames",
                 "--diff-filter=A",
-                "--format=%H",
+                "--format=commit %H %cI",
+                "--name-only",
                 "--",
-                path,
+                openspec.CHANGES_DIR,
             ],
             check=True,
             capture_output=True,
             text=True,
-        ).stdout.split()
+        ).stdout
     except subprocess.CalledProcessError:
-        return None
-    return out[-1] if out else None
+        return {}
+    latest: dict[str, tuple[str, str]] = {}
+    commit = ("", "")
+    for line in out.splitlines():
+        if line.startswith("commit "):
+            _, sha, date = line.split()
+            commit = (sha, date)
+        elif line and line not in latest:  # git log lists newest first
+            latest[line] = commit
+    return latest
 
 
 def render(change: openspec.Change, repo_url: str, branch: str) -> dict:
@@ -55,8 +67,10 @@ def render(change: openspec.Change, repo_url: str, branch: str) -> dict:
     criteria.append(TEST_RESULT_ITEM)
     done, total = change.tasks
 
+    # No @mention: an unchecked name could ping an unrelated GitHub user.
+    # The sync assigns the Issue when the login is assignable.
     owner = (
-        f"@{proposal.owner}"
+        f"`{proposal.owner}`"
         if proposal.owner
         else "(proposal.md에 `담당:` 줄이 없습니다)"
     )
@@ -87,7 +101,6 @@ def render(change: openspec.Change, repo_url: str, branch: str) -> dict:
         "path": change.path,
         "title": f"[{prefix}] {name}",
         "managed": "\n".join(lines) + "\n",
-        "criteria": criteria,
         "owner": proposal.owner,
     }
 
@@ -95,18 +108,25 @@ def render(change: openspec.Change, repo_url: str, branch: str) -> dict:
 def plan(repo: Path, repo_url: str, branch: str) -> list[dict]:
     changes: dict[str, openspec.Change] = {}
     for change in openspec.load_changes(repo):
-        # A re-proposed change keeps the id of an archived one; the active one wins.
-        if change.id not in changes or not change.archived:
+        # Same id twice: an active change (re-proposal) wins, then the latest archive.
+        kept = changes.get(change.id)
+        if (
+            kept is None
+            or not change.archived
+            or (kept.archived and change.path > kept.path)
+        ):
             changes[change.id] = change
+    added = added_commits(repo)
     planned = []
     for change in changes.values():
         item = render(change, repo_url, branch)
-        item["proposal_commit"] = first_added(
-            repo, f"{openspec.CHANGES_DIR}/{change.id}/proposal.md"
+        none = (None, None)
+        proposal = added.get(f"{openspec.CHANGES_DIR}/{change.id}/proposal.md", none)
+        item["proposal_commit"], item["proposal_date"] = proposal
+        archive = (
+            added.get(f"{change.path}/proposal.md", none) if change.archived else none
         )
-        item["archive_commit"] = (
-            first_added(repo, f"{change.path}/proposal.md") if change.archived else None
-        )
+        item["archive_commit"] = archive[0]
         planned.append(item)
     return planned
 

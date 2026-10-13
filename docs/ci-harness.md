@@ -75,7 +75,9 @@ OpenSpec 변경 하나를 개발 작업 Issue 하나로 맞춘다([ADR-001](adr/
 | archive 없이 삭제됨 | 사유를 남기고 Close as not planned로 닫는다. 한 번에 6건 이상이면 닫지 않고 경고만 낸다. |
 | 사람이 닫음 | 다시 열지 않는다. |
 
-- Issue는 본문 첫 줄의 `<!-- openspec-change: <id> -->`로 찾는다. 이 줄을 지우면 새 Issue가 생긴다.
+- Issue는 이 워크플로가 만든 것 중 `openspec` 라벨과 본문 첫 줄의 `<!-- openspec-change: <id> -->`가 있는 것만 인정한다. 라벨이나 이 줄을 지우면 새 Issue가 생긴다. 다른 사람이 같은 줄을 넣어 만든 Issue는 무시한다.
+- 같은 변경에 열린 Issue가 둘 이상이면 번호가 가장 작은 것만 남기고 나머지는 중복으로 not planned 처리한다. completed로 닫힌 변경을 다시 제안하면 새 Issue를 만든다.
+- 근거 섹션에서 자동으로 채우는 부분은 `<!-- openspec-sync: evidence -->` 블록뿐이다. 그 위아래에 직접 쓴 내용은 그대로 둔다.
 - Issues가 꺼진 저장소(이 템플릿)에서는 아무것도 하지 않는다.
 - 계획은 `scripts/harness/issue_plan.py`(토큰 없음), 반영은 `scripts/harness/issue_sync.cjs`가 한다.
 

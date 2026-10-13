@@ -68,14 +68,6 @@ class IssuePlanTest(unittest.TestCase):
         self.assertEqual(item["owner"], "gray")
         self.assertEqual(item["proposal_commit"], proposal_commit)
         self.assertIsNone(item["archive_commit"])
-        self.assertEqual(
-            item["criteria"],
-            [
-                "AC-01 제목 없이 등록하면 거부한다",
-                "아이디 없는 시나리오",
-                TEST_RESULT_ITEM,
-            ],
-        )
         body = item["managed"]
         self.assertTrue(
             body.startswith(
@@ -86,7 +78,9 @@ class IssuePlanTest(unittest.TestCase):
             "## 완료 조건",
             "- [ ] AC-01 제목 없이 등록하면 거부한다",
             "## 담당자 / 연결 문서",
-            "담당: @gray",
+            "담당: `gray`",
+            "- [ ] 아이디 없는 시나리오",
+            f"- [ ] {TEST_RESULT_ITEM}",
             "요구사항: docs/prd.md의 REQ-01",
             "OpenSpec: [openspec/changes/add-todo](https://github.com/o/r/tree/master/openspec/changes/add-todo) (작업 1/2)",
             "범위: 필수",
@@ -128,6 +122,24 @@ class IssuePlanTest(unittest.TestCase):
             "both",
         )
         self.assertFalse(self.plan()["add-todo"]["archived"])
+
+    def test_latest_archive_wins_and_reproposal_uses_its_own_commit(self) -> None:
+        self.commit(
+            {
+                "openspec/changes/archive/2026-01-01-foo/proposal.md": PROPOSAL,
+                "openspec/changes/archive/2026-03-01-foo/proposal.md": PROPOSAL,
+            },
+            "two archives",
+        )
+        self.assertEqual(
+            self.plan()["foo"]["path"], "openspec/changes/archive/2026-03-01-foo"
+        )
+        reproposal = self.commit(
+            {"openspec/changes/foo/proposal.md": PROPOSAL}, "re-propose"
+        )
+        item = self.plan()["foo"]
+        self.assertFalse(item["archived"])
+        self.assertEqual(item["proposal_commit"], reproposal)
 
 
 if __name__ == "__main__":
