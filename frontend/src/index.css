@@ -22,8 +22,8 @@
 }
 
 :root {
-  --font-pretendard: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  --font-pretendard:
+    "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 @layer base {

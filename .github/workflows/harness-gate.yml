@@ -1,0 +1,237 @@
+name: Harness Gate
+
+# Checks every PR with the gate code from the default branch, so a PR (or the
+# agent that wrote it) can't edit the rules that judge it. The PR is read only
+# as data: nothing from it is installed, built or executed here.
+# See docs/ci-harness.md.
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] -- runs default-branch code only; PR commits are read as data, never executed
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  gate:
+    # Other labels don't change the result.
+    if: >-
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+      || github.event.label.name == 'harness-ack'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: harness-gate-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write # sticky comment, removing a stale ack label
+      statuses: write # harness/checks and harness/ack on the PR head commit
+    env:
+      ACK_LABEL: harness-ack
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+      ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor:1.30.1@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+    steps:
+      - name: Mark statuses pending
+        if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            for (const name of ['harness/checks', 'harness/ack']) {
+              await github.rest.repos.createCommitStatus({
+                ...context.repo,
+                sha: process.env.HEAD_SHA,
+                context: name,
+                state: 'pending',
+                description: '검사 중',
+              });
+            }
+      - name: Checkout gate code (default branch)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: trusted
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/harness
+            .github/zizmor.yml
+            .gitleaks.toml
+          sparse-checkout-cone-mode: false
+      - name: Fetch PR commits as data
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          fetch-depth: 0
+          persist-credentials: false
+          # Only .github/ is needed on disk (for zizmor); everything else is read from git objects.
+          sparse-checkout: /.github/
+          sparse-checkout-cone-mode: false
+      - name: Resolve commit range
+        id: range
+        working-directory: pr
+        run: |
+          set -euo pipefail
+          # Fail closed: a missing commit must not turn into an empty scan.
+          git rev-parse --verify "${HEAD_SHA}^{commit}" > /dev/null
+          git rev-parse --verify "${BASE_SHA}^{commit}" > /dev/null
+          merge_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          echo "merge_base=$merge_base" >> "$GITHUB_OUTPUT"
+          if git diff --quiet "$merge_base" "$HEAD_SHA" -- .github; then
+            echo "workflows_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflows_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Scan PR commits for secrets
+        id: gitleaks
+        env:
+          MERGE_BASE: ${{ steps.range.outputs.merge_base }}
+        run: |
+          set +e
+          # Mount only .git: gitleaks would otherwise honor a .gitleaksignore from the PR.
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE/pr/.git:/repo/.git:ro" \
+            -v "$GITHUB_WORKSPACE/trusted:/trusted:ro" \
+            -v "$RUNNER_TEMP:/out" \
+            "$GITLEAKS_IMAGE" git /repo \
+            --config /trusted/.gitleaks.toml --gitleaks-ignore-path /trusted --ignore-gitleaks-allow \
+            --log-opts="--diff-merges=first-parent ${MERGE_BASE}..${HEAD_SHA}" \
+            --redact --no-banner --report-format json --report-path /out/gitleaks.json --exit-code 3
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: Audit PR workflows
+        id: zizmor
+        if: steps.range.outputs.workflows_changed == 'true'
+        run: |
+          set +e
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE/pr/.github:/src/.github:ro" \
+            -v "$GITHUB_WORKSPACE/trusted/.github/zizmor.yml:/cfg/zizmor.yml:ro" \
+            "$ZIZMOR_IMAGE" --offline --no-progress --format plain --config /cfg/zizmor.yml /src \
+            > "$RUNNER_TEMP/zizmor.log" 2>&1
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: Analyze PR
+        env:
+          MERGE_BASE: ${{ steps.range.outputs.merge_base }}
+          GITLEAKS_EXIT: ${{ steps.gitleaks.outputs.exit }}
+          ZIZMOR_EXIT: ${{ steps.zizmor.outputs.exit || 'skipped' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/harness"
+          python3 -I trusted/scripts/harness/gate.py \
+            --repo pr --base "$MERGE_BASE" --head "$HEAD_SHA" \
+            --gitleaks-exit "$GITLEAKS_EXIT" --gitleaks-report "$RUNNER_TEMP/gitleaks.json" \
+            --zizmor-exit "$ZIZMOR_EXIT" --zizmor-log "$RUNNER_TEMP/zizmor.log" \
+            --json "$RUNNER_TEMP/harness/report.json" --markdown "$RUNNER_TEMP/harness/report.md"
+          cat "$RUNNER_TEMP/harness/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Report statuses and comment
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT_DIR: ${{ runner.temp }}/harness
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const sha = process.env.HEAD_SHA;
+            const ackLabel = process.env.ACK_LABEL;
+            const prNumber = context.payload.pull_request.number;
+            const author = context.payload.pull_request.user.login;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const setStatus = (name, state, description) =>
+              github.rest.repos.createCommitStatus({
+                owner, repo, sha, context: name, state, target_url: runUrl,
+                description: description.slice(0, 140),
+              });
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (pr.head.sha !== sha) {
+              core.notice(`PR head moved to ${pr.head.sha}; the run for that commit reports instead.`);
+              return;
+            }
+
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync(`${process.env.REPORT_DIR}/report.json`, 'utf8'));
+            } catch (error) {
+              await setStatus('harness/checks', 'error', '게이트 실행 오류 — 실행 로그를 확인하세요');
+              await setStatus('harness/ack', 'error', '게이트 실행 오류 — 실행 로그를 확인하세요');
+              core.setFailed(`Harness gate analysis failed: ${error.message}`);
+              return;
+            }
+
+            const removeAckLabel = async () => {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: ackLabel });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            };
+
+            // Ack rule: someone other than the PR author, a human with write access,
+            // labels the PR after the latest push.
+            const hasLabel = pr.labels.some((label) => label.name === ackLabel);
+            if (report.needs_ack && !hasLabel) {
+              // Repos created from the template don't inherit labels; create it on first use.
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: ackLabel });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner, repo, name: ackLabel, color: '0e8a16',
+                  description: 'Harness Gate 신호를 PR 작성자가 아닌 사람이 확인함',
+                });
+              }
+            }
+            let ack;
+            if (!report.needs_ack) {
+              ack = { state: 'success', description: '사람 확인이 필요한 신호 없음' };
+            } else if (context.payload.action === 'synchronize' && hasLabel) {
+              await removeAckLabel();
+              ack = { state: 'failure', description: `새 커밋이 push되어 ${ackLabel} 라벨을 해제했습니다. 다시 확인해야 합니다` };
+            } else if (!hasLabel) {
+              ack = { state: 'failure', description: `신호 ${report.signals.length}종 — 작성자가 아닌 write 권한자의 ${ackLabel} 라벨 필요` };
+            } else {
+              const events = await github.paginate(github.rest.issues.listEvents, {
+                owner, repo, issue_number: prNumber, per_page: 100,
+              });
+              const labeled = events.filter((e) => e.event === 'labeled' && e.label?.name === ackLabel).at(-1);
+              const actor = labeled?.actor;
+              let problem = null;
+              if (!actor) {
+                problem = '라벨을 붙인 사람을 확인할 수 없음';
+              } else if (actor.type !== 'User' || labeled.performed_via_github_app) {
+                problem = `앱·봇(${actor.login})의 확인은 인정하지 않음`;
+              } else if (actor.login === author) {
+                problem = 'PR 작성자 본인의 확인은 인정하지 않음';
+              } else {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: actor.login });
+                if (!['admin', 'write'].includes(data.permission)) problem = `${actor.login}에게 write 권한이 없음`;
+              }
+              if (problem) {
+                await removeAckLabel();
+                ack = { state: 'failure', description: `${ackLabel} 무효: ${problem}` };
+              } else {
+                ack = { state: 'success', description: `${actor.login} 확인 완료` };
+              }
+            }
+
+            const marker = '<!-- harness-gate -->';
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: prNumber, per_page: 100,
+            });
+            const existing = comments.find((c) => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
+            const ackIcon = ack.state === 'success' ? '✅' : '⏳';
+            const body = `${fs.readFileSync(`${process.env.REPORT_DIR}/report.md`, 'utf8')}\n` +
+              `**harness/ack**: ${ackIcon} ${ack.description}\n\n[실행 로그](${runUrl})\n`;
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else if (report.deterministic_failed || report.needs_ack) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }
+
+            const failed = report.checks.filter((c) => c.status === 'fail').map((c) => c.title);
+            await setStatus(
+              'harness/checks',
+              failed.length ? 'failure' : 'success',
+              failed.length ? `실패: ${failed.join(', ')}` : '비밀값·워크플로·공급망 검사 통과',
+            );
+            await setStatus('harness/ack', ack.state, ack.description);

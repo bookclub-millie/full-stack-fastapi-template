@@ -33,6 +33,7 @@
 - [백엔드](../backend/README.md)
 - [테스트 재현 절차](e2e-test.md#실행-환경과-재현-절차)
 - [테스트 실행 결과](e2e-test.md#실행-결과)
+- [CI 하네스](ci-harness.md) — PR 자동 검사·사람 확인·AI 리뷰
 
 ## 참고 출처
 

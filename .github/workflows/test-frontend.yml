@@ -1,0 +1,56 @@
+name: Test Frontend
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: test-frontend-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists the PR files through the API
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # paths-filter needs the previous commit on pushes to master
+          fetch-depth: 2
+          persist-credentials: false
+      # Always report this (required) check, but skip the work when nothing frontend changed.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - frontend/**
+              - packages/**
+              - package.json
+              - bun.lock
+              - bunfig.toml
+              - .github/workflows/test-frontend.yml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.filter.outputs.frontend == 'true'
+        with:
+          bun-version: 1.3.12
+      - name: Install dependencies
+        if: steps.filter.outputs.frontend == 'true'
+        run: bun ci
+      - name: Typecheck (frontend and @kds/ui)
+        if: steps.filter.outputs.frontend == 'true'
+        run: bun run typecheck
+      - name: Lint @kds/ui
+        if: steps.filter.outputs.frontend == 'true'
+        run: bun run --filter @kds/ui lint
+      # `bun run build` would run tsc again; typecheck above already covered it.
+      - name: Build
+        if: steps.filter.outputs.frontend == 'true'
+        run: bun run --cwd frontend vite build

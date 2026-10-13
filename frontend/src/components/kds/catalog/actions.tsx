@@ -1,6 +1,3 @@
-import { ArrowUpRight, Bold, Check, Italic, Link2, Star } from "lucide-react"
-
-import { Specimen } from "./specimen"
 import { Avatar, AvatarFallback, AvatarGroup } from "@kds/ui/components/avatar"
 import { Badge } from "@kds/ui/components/badge"
 import {
@@ -21,6 +18,8 @@ import { Kbd, KbdGroup } from "@kds/ui/components/kbd"
 import { Marker, MarkerContent, MarkerIcon } from "@kds/ui/components/marker"
 import { Toggle } from "@kds/ui/components/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@kds/ui/components/toggle-group"
+import { ArrowUpRight, Bold, Check, Italic, Link2, Star } from "lucide-react"
+import { Specimen } from "./specimen"
 
 export function ActionSpecimens() {
   return (

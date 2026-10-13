@@ -1,7 +1,3 @@
-import { CircleHelp, TriangleAlert } from "lucide-react"
-
-import { Specimen } from "./specimen"
-import { ToastDemo } from "./toast-demo"
 import { Alert, AlertDescription, AlertTitle } from "@kds/ui/components/alert"
 import {
   AlertDialog,
@@ -93,6 +89,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@kds/ui/components/tooltip"
+import { CircleHelp, TriangleAlert } from "lucide-react"
+import { Specimen } from "./specimen"
+import { ToastDemo } from "./toast-demo"
 
 export function FeedbackSpecimens() {
   return (

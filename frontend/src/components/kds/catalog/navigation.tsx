@@ -1,6 +1,3 @@
-import { Home, Layers, Search, Settings2 } from "lucide-react"
-
-import { Specimen } from "./specimen"
 import { Button } from "@kds/ui/components/button"
 import {
   Command,
@@ -21,8 +18,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
@@ -58,6 +55,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@kds/ui/components/sidebar"
+import { Home, Layers, Search, Settings2 } from "lucide-react"
+import { Specimen } from "./specimen"
 
 export function NavigationSpecimens() {
   return (

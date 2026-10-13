@@ -1,5 +1,3 @@
-import type { ReactNode } from "react"
-
 import {
   Card,
   CardContent,
@@ -7,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@kds/ui/components/card"
+import type { ReactNode } from "react"
 
 export function Specimen({
   name,
