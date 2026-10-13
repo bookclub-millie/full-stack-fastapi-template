@@ -36,27 +36,34 @@
 
 | SEC | 보안 항목 | 적용 여부·이유 | 코드 위치 | 정상 TC | 거부 TC·저장값 확인 | 결과·증거 경로 | 상태 |
 |---|---|---|---|---|---|---|---|
-| SEC-01 | 비밀정보 | 미확인 | | | | | 미검증 |
-| SEC-02 | 사용자 인증 | 미확인 | | | | | 미검증 |
-| SEC-03 | 접근 권한 | 미확인 | | | | | 미검증 |
-| SEC-04 | 입력 검증 | 미확인 | | | | | 미검증 |
-| SEC-05 | 비밀번호 저장 | 미확인 | | | | | 미검증 |
-| SEC-06 | 안전한 전송 | 미확인 | | | | | 미검증 |
-| SEC-07 | 정보 최소화 | 미확인 | | | | | 미검증 |
-| SEC-08 | 세션 관리 | 미확인 | | | | | 미검증 |
-| SEC-09 | 반복 시도 제한 | 미확인 | | | | | 미검증 |
-| SEC-10 | 보안 감사 기록 | 미확인 | | | | | 미검증 |
-| SEC-11 | 환경 분리 | 미확인 | | | | | 미검증 |
-| SEC-12 | 예외·미검증 | 미확인 | | | | | 미검증 |
+| SEC-01 | 비밀정보 | 적용(템플릿): 설정은 환경변수·`.env`에서 읽고, 개발 환경이 아니면 기본값 `changethis`로 기동하지 않는다. PR마다 Harness Gate가 gitleaks로 비밀값을 검사한다 | `backend/app/core/config.py`(`_check_default_secret`), `.github/workflows/harness-gate.yml` | | | | 미검증 |
+| SEC-02 | 사용자 인증 | 적용(템플릿): 로그인이 필요한 API는 서버에서 JWT를 검증한다. 기존 테스트 `test_login.py::test_get_access_token_incorrect_password` | `backend/app/api/deps.py`(`get_current_user`, `CurrentUser`), `backend/app/core/security.py` | | | | 미검증 |
+| SEC-03 | 접근 권한 | 적용(템플릿): items는 소유자·관리자만 조회·수정·삭제, 사용자 관리는 관리자만. 기존 테스트 `test_items.py::*_not_enough_permissions`, `test_users.py::*_permissions_error`. 일반 사용자의 목록이 본인 자료만 돌려주는지는 테스트가 없다 | `backend/app/api/routes/items.py`, `backend/app/api/routes/users.py`, `backend/app/api/deps.py`(`get_current_active_superuser`) | | | | 미검증 |
+| SEC-04 | 입력 검증 | 적용(템플릿): 요청 본문을 Pydantic·SQLModel 모델로 검증한다(이메일 형식, 길이, 비밀번호 8~128자) | `backend/app/models.py` | | | | 미검증 |
+| SEC-05 | 비밀번호 저장 | 적용(템플릿): Argon2 해시(pwdlib, bcrypt 해시는 검증 시 갱신). 없는 계정도 더미 해시로 검증해 응답 시간 차를 줄인다 | `backend/app/core/security.py`, `backend/app/crud.py`(`authenticate`, `DUMMY_HASH`) | | | | 미검증 |
+| SEC-06 | 안전한 전송 | 부분: 배포 구성에서 Traefik이 HTTP를 HTTPS로 전환한다. 로컬 개발은 HTTP. CORS는 `FRONTEND_HOST`만 허용 | `compose.deploy.yml`, `backend/app/main.py` | | | | 미검증 |
+| SEC-07 | 정보 최소화 | 부분: 사용자 응답 모델에 비밀번호 해시를 넣지 않는다(`UserPublic`). 새 계정 안내 메일에 비밀번호가 평문으로 들어간다 | `backend/app/models.py`, `backend/app/utils.py`(`generate_new_account_email`) | | | | 미검증 |
+| SEC-08 | 세션 관리 | 부분: JWT 만료 8일, 서버 측 로그아웃·토큰 폐기 없음, 브라우저 localStorage 저장. 비밀번호 재설정 토큰은 48시간 동안 여러 번 쓸 수 있다 | `backend/app/core/config.py`(`ACCESS_TOKEN_EXPIRE_MINUTES`, `EMAIL_RESET_TOKEN_EXPIRE_HOURS`), `frontend/src/main.tsx` | | | | 미검증 |
+| SEC-09 | 반복 시도 제한 | 미적용: 로그인 실패 횟수 제한이 없다 | | | | | 미검증 |
+| SEC-10 | 보안 감사 기록 | 미적용: 로그인 실패·권한 변경 기록이 없다 | | | | | 미검증 |
+| SEC-11 | 환경 분리 | 적용(템플릿): 개발 전용 API는 `FASTAPI_ENV=development`일 때만 등록하고, 그 밖의 환경은 기본 비밀값을 거부한다. 저장소의 `.env`는 개발용 값이다. 배포 구성은 adminer를 서브도메인으로 공개한다 | `backend/app/api/main.py`, `backend/app/core/config.py`, `.env`, `compose.yml` | | | | 미검증 |
+| SEC-12 | 예외·미검증 | 아래 "예외와 위험" 표에 공백과 대안을 적었다. 정책 원문을 받으면 다시 대조한다 | | | | | 미검증 |
 
 미실행은 미검증, 해당 없음은 사유를 기록한다. 키·토큰·비밀번호는 코드·URL·로그·문서에 노출하지 않는다. 실제 비밀 대신 환경변수 예시와 안전한 설정 방법을 적는다.
 
 자료 권한이 적용되는 경우에는 본인 조회 성공 / 타인 요청 거부 / 자료 유출 없음 / 저장값 불변을 각각 TC와 실행 근거로 연결한다. 이는 작성 기준이며 현재 구현이나 검증 결과가 아니다.
 
+"적용(템플릿)"은 템플릿 코드에 있는 통제를 확인했다는 뜻이며, 실행 근거(TC 결과)가 연결되기 전까지 상태는 `미검증`이다. 주제 기능을 더하면 그 기능의 코드 위치와 TC를 같은 행에 추가한다.
+
 ## 예외와 위험
 
 | SEC | 미적용·예외 사유 | 위험·대안 | 검토자 | 검토 상태 |
 |---|---|---|---|---|
+| SEC-07 | 새 계정 안내 메일에 비밀번호 평문 포함(템플릿 기본) | 메일 유출 시 계정 탈취. 대안: 비밀번호 대신 설정 링크를 보낸다 | | 대기 |
+| SEC-08 | 토큰 폐기·서버 로그아웃 없음, 만료 8일, 재설정 토큰 재사용 가능 | 탈취된 토큰을 만료 전까지 쓸 수 있다. 대안: 만료 단축, 사용자별 토큰 버전으로 폐기, 재설정 토큰 1회 사용 | | 대기 |
+| SEC-09 | 로그인 반복 실패 제한 없음 | 비밀번호 무차별 대입. 대안: 계정·IP별 실패 횟수 제한과 대기 | | 대기 |
+| SEC-10 | 보안 감사 기록 없음 | 사고 추적이 어렵다. 대안: 로그인 실패·권한 변경을 비밀값 없이 기록 | | 대기 |
+| SEC-11 | 배포 구성의 adminer 공개 | DB 관리 화면 노출. 대안: 배포에서 제외하거나 접근 제한 | | 대기 |
 
 <!-- 승인되지 않은 예외는 대기로 표시한다. -->
 
