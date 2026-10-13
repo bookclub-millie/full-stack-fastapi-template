@@ -1,28 +1,40 @@
 schema: spec-driven
 
+# 산출물 형식 규칙. Issue 동기화와 Harness Gate의 문서 추적성 검사가 이 형식에
+# 의존한다. 근거: docs/adr/001-openspec-docs-traceability.md
+
 context: |
   Language: Korean
   All artifacts must be written in Korean.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  스택: FastAPI + SQLModel + PostgreSQL(backend/), React + TypeScript + Vite + KDS(@kds/ui)(frontend/, packages/ui/), pytest(backend/tests/), Playwright E2E(frontend/tests/).
+  평가 문서(docs/*.md, README.md)는 REQ → AC → Issue·코드 → TC → 실제 결과로 이어져야 한다. 계획·예시·실행하지 않은 시험을 완료로 기록하지 않는다.
+  ID는 저장소 전체에서 하나씩 증가한다: REQ-xx·AC-xx(docs/prd.md), FLOW-xx(docs/experience.md), TC-xx(docs/e2e-test.md), SEC-xx(docs/security-compliance.md, 주최 측 docs/security-policy.md 기준). 새 번호를 정하기 전에 해당 문서를 읽고 가장 큰 번호의 다음 번호를 쓴다.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+rules:
+  proposal:
+    - 첫 줄은 `# <기능 이름>`으로 쓴다(`# Proposal` 금지). 이 이름이 GitHub Issue 제목이 된다.
+    - "제목 바로 아래에 세 줄을 그대로 쓴다: `요구사항: REQ-01`(여러 개면 쉼표로 구분), `담당: @<GitHub ID>`, `범위: 필수` 또는 `범위: 추가`."
+    - 주최 측 주제 요구와 팀이 더한 아이디어를 구분해 What Changes에 적는다.
+  specs:
+    - "모든 요구사항 이름은 `### Requirement: REQ-xx <이름>`으로 쓰고, proposal의 요구사항 줄에 있는 ID를 쓴다."
+    - "모든 시나리오 이름은 `#### Scenario: AC-xx <이름>`으로 쓴다. 시나리오가 docs/prd.md의 인수조건(AC)이다."
+    - "시나리오가 사용자 흐름이나 보안 항목에 해당하면 그 아래에 `- **연결**: FLOW-xx, SEC-xx` 줄을 둔다."
+    - 정상 경로만 쓰지 말고 오류·빈 상태·권한·복구 시나리오를 함께 쓴다. 결과는 화면·응답·저장값처럼 관찰할 수 있게 쓴다.
+  design:
+    - 저장소 전체에 영향을 주는 결정이면 ADR(docs/adr/000-template.md 복사)과 docs/arch.md 주요 결정 표의 행을 tasks에 넣는다.
+  tasks:
+    - "마지막 작업 그룹은 `## N. 문서·근거`로 두고 다음을 넣는다: docs/prd.md 추적표에 REQ·AC 행 추가(상태 `계획`), 사용자에게 보이는 변경이면 docs/experience.md에 FLOW 행 추가, AC마다 docs/e2e-test.md 테스트 시나리오에 TC 행 추가(상태 `미검증`), SEC를 연결한 시나리오가 있으면 docs/security-compliance.md 행 갱신."
+    - "AC마다 TC ID를 이름에 단 테스트를 작성하는 작업을 넣는다: pytest `test_tc_01_<설명>`, Playwright `test(\"TC-01 <설명>\", ...)`."
+
+operations:
+  apply:
+    guidance:
+      - 각 AC를 확인하는 테스트를 TC ID 이름으로 작성한 뒤 해당 작업을 완료로 표시한다.
+      - apply 단계에서는 문서의 상태를 `완료`나 `PASS`로 바꾸지 않는다. 결과는 archive 단계에서 수집한 근거로만 기록한다.
+  archive:
+    guidance:
+      - "archive 전에 `python3 scripts/evidence/collect.py --sha <PR head SHA>`를 실행하고, 출력된 행을 docs/e2e-test.md 실행 결과 표에 그대로 옮긴다. 도구가 보고하지 않은 결과는 쓰지 않는다. 도구가 없으면 GitHub Actions 실행 결과를 직접 열어 확인한 것만 SHA·실행 링크와 함께 쓴다."
+      - 그 결과로 docs/prd.md 상태, docs/experience.md 구현 후 확인, docs/security-compliance.md 적용·검증 결과를 갱신한다. 근거가 없는 항목은 `미검증`으로 남긴다.
+      - "docs/development.md의 'AI 활용과 검증' 표에 이 변경의 행을 추가한다: Issue 칸은 `#<번호> (<change-id>)`(번호는 `gh issue list --label openspec --search <change-id>`로 찾는다), 담당자, AI 도구·사용 목적, 변경 코드(PR·커밋), 검증·발견 문제, 수정·재시험 근거를 모두 채운다. 이 행이 없으면 Harness Gate가 PR을 실패 처리한다."

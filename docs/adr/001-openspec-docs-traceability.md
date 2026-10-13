@@ -1,6 +1,6 @@
 # ADR-001: OpenSpec과 문서·Issue 연동
 
-- 상태: 제안
+- 상태: 채택
 - 날짜: 2026-10-14
 - 관련 REQ·Issue·PR: #1(CI 하네스), #3(OpenSpec 설정)
 
