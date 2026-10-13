@@ -67,6 +67,8 @@ Backend docs: [backend/README.md](./backend/README.md).
 
 Frontend docs: [frontend/README.md](./frontend/README.md).
 
+Component development: `bun run storybook` → <http://localhost:6006>. See [frontend quality checks](./frontend/README.md#frontend-quality) for Storybook accessibility, Vitest, visual regression, and CI commands.
+
 ## Deployment
 
 FastAPI Cloud deployment: [deployment.md](./deployment.md).

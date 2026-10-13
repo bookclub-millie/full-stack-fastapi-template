@@ -1,95 +1,76 @@
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Button } from '@kds/ui/components/button'
+import { useMutation } from '@tanstack/react-query'
 import {
   createFileRoute,
   Link as RouterLink,
   redirect,
-  useNavigate,
-} from "@tanstack/react-router"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+  useNavigate
+} from '@tanstack/react-router'
+import { Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
 
-import { LoginService } from "@/client"
-import { AuthLayout } from "@/components/Common/AuthLayout"
+import { LoginService } from '@/client'
+import { AuthLayout } from '@/components/Common/auth-layout'
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { PasswordInput } from "@/components/ui/password-input"
-import { isLoggedIn } from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
+  FormMessage
+} from '@/components/ui/form'
+import { PasswordInput } from '@/components/ui/password-input'
+import { isLoggedIn, showAuthError } from '@/hooks/use-auth'
 
 const searchSchema = z.object({
-  token: z.string().catch(""),
+  token: z.string().catch('')
 })
 
 const formSchema = z
   .object({
     new_password: z
       .string()
-      .min(1, { message: "Password is required" })
-      .min(8, { message: "Password must be at least 8 characters" }),
+      .min(1, { message: '비밀번호를 입력해 주세요.' })
+      .min(8, { message: '비밀번호는 8자 이상 입력해 주세요.' }),
     confirm_password: z
       .string()
-      .min(1, { message: "Password confirmation is required" }),
+      .min(1, { message: '비밀번호를 한 번 더 입력해 주세요.' })
   })
-  .refine((data) => data.new_password === data.confirm_password, {
-    message: "The passwords don't match",
-    path: ["confirm_password"],
+  .refine(data => data.new_password === data.confirm_password, {
+    message: '비밀번호가 일치하지 않아요. 다시 확인해 주세요.',
+    path: ['confirm_password']
   })
 
 type FormData = z.infer<typeof formSchema>
 
-export const Route = createFileRoute("/reset-password")({
-  component: ResetPassword,
-  validateSearch: searchSchema,
-  beforeLoad: async ({ search }) => {
-    if (isLoggedIn()) {
-      throw redirect({ to: "/" })
-    }
-    if (!search.token) {
-      throw redirect({ to: "/login" })
-    }
-  },
-  head: () => ({
-    meta: [
-      {
-        title: "Reset Password - FastAPI Template",
-      },
-    ],
-  }),
-})
-
-function ResetPassword() {
+const ResetPassword = () => {
   const { token } = Route.useSearch()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
   const navigate = useNavigate()
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    mode: "onBlur",
-    criteriaMode: "all",
+    mode: 'onBlur',
+    criteriaMode: 'all',
     defaultValues: {
-      new_password: "",
-      confirm_password: "",
-    },
+      new_password: '',
+      confirm_password: ''
+    }
   })
 
   const mutation = useMutation({
     mutationFn: (data: { new_password: string; token: string }) =>
       LoginService.resetPassword({ body: data }),
     onSuccess: () => {
-      showSuccessToast("Password updated successfully")
+      toast.success('비밀번호를 바꿨어요.', {
+        description: '새 비밀번호로 로그인해 주세요.'
+      })
       form.reset()
-      navigate({ to: "/login" })
+      navigate({ to: '/login' })
     },
-    onError: handleError.bind(showErrorToast),
+    onError: showAuthError
   })
 
   const onSubmit = (data: FormData) => {
@@ -100,24 +81,32 @@ function ResetPassword() {
     <AuthLayout>
       <Form {...form}>
         <form
+          noValidate
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-8 sm:gap-10"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Reset Password</h1>
+          <div className="space-y-3 text-center">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              비밀번호 재설정
+            </h1>
+            <p className="break-keep text-sm text-muted-foreground sm:text-base">
+              새로 사용할 비밀번호를 입력해 주세요.
+            </p>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <FormField
               control={form.control}
               name="new_password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Password</FormLabel>
+                  <FormLabel>새 비밀번호</FormLabel>
                   <FormControl>
                     <PasswordInput
                       data-testid="new-password-input"
-                      placeholder="New Password"
+                      placeholder="8자 이상"
+                      autoComplete="new-password"
+                      className="h-12 px-4 pr-12 md:text-base"
                       {...field}
                     />
                   </FormControl>
@@ -131,11 +120,13 @@ function ResetPassword() {
               name="confirm_password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>비밀번호 확인</FormLabel>
                   <FormControl>
                     <PasswordInput
                       data-testid="confirm-password-input"
-                      placeholder="Confirm Password"
+                      placeholder="비밀번호 한 번 더 입력"
+                      autoComplete="new-password"
+                      className="h-12 px-4 pr-12 md:text-base"
                       {...field}
                     />
                   </FormControl>
@@ -144,19 +135,29 @@ function ResetPassword() {
               )}
             />
 
-            <LoadingButton
+            <Button
               type="submit"
-              className="w-full"
-              loading={mutation.isPending}
+              className="h-12 w-full bg-foreground text-base text-background hover:bg-foreground/90"
+              disabled={mutation.isPending}
+              aria-busy={mutation.isPending}
             >
-              Reset Password
-            </LoadingButton>
+              {mutation.isPending && (
+                <Loader2
+                  aria-hidden="true"
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                />
+              )}
+              비밀번호 재설정
+            </Button>
           </div>
 
-          <div className="text-center text-sm">
-            Remember your password?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
+          <div className="text-center text-sm text-muted-foreground">
+            비밀번호가 기억났나요?{' '}
+            <RouterLink
+              to="/login"
+              className="inline-flex min-h-11 items-center rounded-md px-1 font-medium text-foreground underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              로그인
             </RouterLink>
           </div>
         </form>
@@ -164,3 +165,22 @@ function ResetPassword() {
     </AuthLayout>
   )
 }
+export const Route = createFileRoute('/reset-password')({
+  component: ResetPassword,
+  validateSearch: searchSchema,
+  beforeLoad: async ({ search }) => {
+    if (isLoggedIn()) {
+      throw redirect({ to: '/' })
+    }
+    if (!search.token) {
+      throw redirect({ to: '/login' })
+    }
+  },
+  head: () => ({
+    meta: [
+      {
+        title: '비밀번호 재설정'
+      }
+    ]
+  })
+})

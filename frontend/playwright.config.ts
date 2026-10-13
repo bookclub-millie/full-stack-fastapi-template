@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 import 'dotenv/config'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173'
@@ -12,7 +12,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173'
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -29,7 +29,7 @@ export default defineConfig({
     baseURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    trace: 'on-first-retry'
   },
 
   /* Configure projects for major browsers */
@@ -40,10 +40,10 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'playwright/.auth/user.json',
+        storageState: 'playwright/.auth/user.json'
       },
-      dependencies: ['setup'],
-    },
+      dependencies: ['setup']
+    }
 
     // {
     //   name: 'firefox',
@@ -90,6 +90,6 @@ export default defineConfig({
     : {
         command: 'bun run dev',
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
-      },
-});
+        reuseExistingServer: !process.env.CI
+      }
+})

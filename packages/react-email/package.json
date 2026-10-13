@@ -5,7 +5,9 @@
   "scripts": {
     "build": "email build",
     "dev": "email dev --port 3333",
-    "lint": "biome check --write --unsafe --no-errors-on-unmatched --files-ignore-unknown=true ./",
+    "format": "biome check --write --linter-enabled=false ./",
+    "format:check": "biome check --linter-enabled=false ./",
+    "lint": "biome lint ./",
     "export": "email export --outDir ../../backend/app/email-templates"
   },
   "dependencies": {
@@ -15,7 +17,6 @@
     "react-email": "6.11.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
     "@react-email/ui": "6.11.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0"

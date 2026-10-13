@@ -1,0 +1,79 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc}",
+      "frontend/**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc}",
+      "packages/**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc}",
+      "scripts/**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc}",
+      ".github/**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/.agents",
+      "!**/.claude",
+      "!**/.react-email",
+      "!**/.tanstack",
+      "!frontend/public",
+      "!frontend/storybook-static",
+      "!frontend/coverage",
+      "!frontend/visual-test-results",
+      "!frontend/visual-report",
+      "!frontend/test-results",
+      "!frontend/blob-report",
+      "!frontend/playwright-report",
+      "!frontend/src/routeTree.gen.ts",
+      "!frontend/src/client",
+      "!skills-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "none",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "assist": {
+    "actions": { "source": { "organizeImports": "on" } }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "error",
+        "useSelfClosingElements": "error",
+        "noUselessElse": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "frontend/src/components/ui/**",
+        "frontend/playwright.config.ts",
+        "packages/ui/**"
+      ],
+      "linter": { "enabled": false }
+    }
+  ]
+}

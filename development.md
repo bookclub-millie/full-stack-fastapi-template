@@ -42,9 +42,13 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
-The frontend is a Vite/React CSR app in a Bun workspace, not Next.js. The shared KDS package is `packages/ui` (`@kds/ui`), alongside `packages/react-email`. Visit <http://localhost:5173/kds> to work on the 61-component gallery without starting the backend or database. Existing authenticated pages still require the backend.
+The frontend is a Vite/React CSR app in a Bun workspace, not Next.js. The shared KDS package is `packages/ui` (`@kds/ui`), alongside `packages/react-email`. Run `bun run storybook` and open <http://localhost:6006> to develop components without the backend or database. Authenticated application pages still require the backend.
 
 Run `bun run build` and `bun run typecheck` from the repository root to check the frontend and shared UI. See [the frontend KDS guide](./frontend/README.md#kds-design-system) for imports, styles, fonts, and theme integration.
+
+See [frontend quality commands](./frontend/README.md#frontend-quality) for component accessibility, unit tests, visual regression, and CI. `bun run lint:check` and `bun run check:deps` are read-only checks. Run Storybook separately from the application; it is not part of the production app bundle.
+
+Code style is shared through the root `biome.json`. Run `bun run format` to apply StandardJS-like formatting and organize imports across authored frontend, package, and JS/TS script files; it does not run lint rules or tests. See [code conventions](./frontend/README.md#code-conventions) for function-expression and filename rules.
 
 ### Frontend Served by FastAPI
 
@@ -55,6 +59,31 @@ bun run build
 ```
 
 The build is written to `backend/app/frontend` and served by FastAPI at <http://localhost:8000>. Rebuild the frontend after making frontend changes.
+
+## Frontend Agent Skills
+
+Shared skill sources live in `.agents/skills/`. Matching relative symlinks in `.claude/skills/` let Claude Code use the same files without maintaining duplicate copies.
+
+| Skill | Use |
+|---|---|
+| `feature-sliced-design` | Frontend architecture and dependency boundaries |
+| `impeccable` | UI design guidance, review, and design tooling |
+| `nextjs` | Next.js projects only; retained for future use, not the current Vite CSR frontend |
+| `vercel-react-best-practices` | React performance guidance; apply Next.js/server-specific rules only to matching code |
+
+The source files, references, and runtime assets are retained from `millie-ai-boilerplate`. `skills-lock.json` records the three upstream-managed skills; Impeccable carries its engine version in `.agents/skills/impeccable/scripts/VERSION`. OpenSpec skills and its workflow are not included.
+
+From the repository root, inspect skill discovery and the Impeccable launcher:
+
+```bash
+npx skills list
+.agents/skills/impeccable/scripts/impeccable engine-probe
+.claude/skills/impeccable/scripts/impeccable --help
+```
+
+Impeccable's launcher uses a local engine or downloads the pinned engine into the user cache on first use. Initial download requires network access and verifies the release checksum. Windows without a POSIX shell uses `scripts/impeccable.cmd`. Follow each skill's `SKILL.md` for task-specific setup; copying a skill does not migrate application architecture or initialize design context.
+
+Existing `library-skills`, FastAPI, and SQLModel integrations are preserved. Backend package-provided skill links require the Python dependencies to be installed; use the existing Library Skills instructions to check or repair those links.
 
 ## Full Stack with Docker Compose
 

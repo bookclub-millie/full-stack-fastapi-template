@@ -10,9 +10,12 @@
     "./globals.css": "./src/styles/globals.css",
     "./tokens.css": "./src/styles/tokens.css"
   },
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
-    "lint": "eslint .",
+    "format": "biome check --write --linter-enabled=false ./",
+    "format:check": "biome check --linter-enabled=false ./",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -40,11 +43,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-plugin-react-hooks": "^7.1.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "typescript": "^5",
-    "typescript-eslint": "^8.71.1"
+    "typescript": "^5"
   }
 }

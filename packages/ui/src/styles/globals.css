@@ -113,8 +113,4 @@
     cursor: pointer;
   }
 
-  ::selection {
-    color: var(--text-inverse);
-    background: var(--fill-accent-primary);
-  }
 }

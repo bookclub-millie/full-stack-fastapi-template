@@ -35,6 +35,9 @@ jobs:
           changed:
             - backend/**
             - frontend/**
+            - packages/**
+            - package.json
+            - bun.lock
             - .env
             - compose*.yml
             - .github/workflows/playwright.yml

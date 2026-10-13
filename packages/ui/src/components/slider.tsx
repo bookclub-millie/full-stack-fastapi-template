@@ -1,11 +1,11 @@
-import { Slider as SliderPrimitive } from "@base-ui/react/slider"
-import { cn } from "cn"
+import { Slider as SliderPrimitive } from '@base-ui/react/slider'
+import { cn } from 'cn'
 
 type SliderProps = SliderPrimitive.Root.Props & {
-  getAriaLabel?: SliderPrimitive.Thumb.Props["getAriaLabel"]
+  getAriaLabel?: SliderPrimitive.Thumb.Props['getAriaLabel']
 }
 
-function Slider({
+const Slider = ({
   className,
   defaultValue,
   getAriaLabel,
@@ -13,7 +13,7 @@ function Slider({
   min = 0,
   max = 100,
   ...props
-}: SliderProps) {
+}: SliderProps) => {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
@@ -22,7 +22,7 @@ function Slider({
 
   return (
     <SliderPrimitive.Root
-      className={cn("data-horizontal:w-full data-vertical:h-full", className)}
+      className={cn('data-horizontal:w-full data-vertical:h-full', className)}
       data-slot="slider"
       defaultValue={defaultValue}
       value={value}

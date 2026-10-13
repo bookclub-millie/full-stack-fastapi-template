@@ -1,34 +1,33 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import { Questionnaire as QuestionnairePrimitive } from "@shadcn/react/questionnaire"
-import { cn } from "cn"
+import { type Button, buttonVariants } from '@kds/ui/components/button'
+import { Questionnaire as QuestionnairePrimitive } from '@shadcn/react/questionnaire'
+import { cn } from 'cn'
+import { CheckIcon } from 'lucide-react'
+import * as React from 'react'
 
-import { buttonVariants, type Button } from "@kds/ui/components/button"
-import { CheckIcon } from "lucide-react"
-
-function Questionnaire({
+const Questionnaire = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Root>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Root>) => {
   return (
     <QuestionnairePrimitive.Root
       data-slot="questionnaire"
-      className={cn("flex w-full min-w-0 flex-col gap-6", className)}
+      className={cn('flex w-full min-w-0 flex-col gap-6', className)}
       {...props}
     />
   )
 }
 
-function QuestionnaireProgress({
+const QuestionnaireProgress = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Progress>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Progress>) => {
   return (
     <QuestionnairePrimitive.Progress
       data-slot="questionnaire-progress"
       className={cn(
-        "min-h-[1lh] w-fit min-w-[14ch] text-xs font-medium text-muted-foreground tabular-nums",
+        'min-h-[1lh] w-fit min-w-[14ch] text-xs font-medium text-muted-foreground tabular-nums',
         className
       )}
       {...props}
@@ -36,15 +35,15 @@ function QuestionnaireProgress({
   )
 }
 
-function QuestionnaireItem({
+const QuestionnaireItem = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Item>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Item>) => {
   return (
     <QuestionnairePrimitive.Item
       data-slot="questionnaire-item"
       className={cn(
-        "flex min-w-0 flex-col gap-5 border-0 p-0 outline-none",
+        'flex min-w-0 flex-col gap-5 border-0 p-0 outline-none',
         className
       )}
       {...props}
@@ -52,15 +51,15 @@ function QuestionnaireItem({
   )
 }
 
-function QuestionnaireTitle({
+const QuestionnaireTitle = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Title>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Title>) => {
   return (
     <QuestionnairePrimitive.Title
       data-slot="questionnaire-title"
       className={cn(
-        "font-heading text-base font-semibold text-pretty [&:not(:has(~[data-slot=questionnaire-description]))]:mb-5",
+        'font-heading text-base font-semibold text-pretty [&:not(:has(~[data-slot=questionnaire-description]))]:mb-5',
         className
       )}
       {...props}
@@ -68,28 +67,28 @@ function QuestionnaireTitle({
   )
 }
 
-function QuestionnaireDescription({
+const QuestionnaireDescription = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Description>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Description>) => {
   return (
     <QuestionnairePrimitive.Description
       data-slot="questionnaire-description"
-      className={cn("text-sm text-pretty text-muted-foreground", className)}
+      className={cn('text-sm text-pretty text-muted-foreground', className)}
       {...props}
     />
   )
 }
 
-function QuestionnaireChoices({
+const QuestionnaireChoices = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Choices>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Choices>) => {
   return (
     <QuestionnairePrimitive.Choices
       data-slot="questionnaire-choices"
       className={cn(
-        "group/questionnaire-choices grid min-w-0 gap-3",
+        'group/questionnaire-choices grid min-w-0 gap-3',
         className
       )}
       {...props}
@@ -97,17 +96,17 @@ function QuestionnaireChoices({
   )
 }
 
-function QuestionnaireChoice({
+const QuestionnaireChoice = ({
   children,
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Choice>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Choice>) => {
   return (
     <QuestionnairePrimitive.Choice
       data-slot="questionnaire-choice"
       className={cn(
-        "group/questionnaire-choice relative flex min-h-11 cursor-pointer items-start gap-3 rounded-4xl border border-input px-4 py-3.5 text-start text-sm transition-colors outline-none select-none hover:bg-input/40 has-[>input:focus-visible]:border-ring has-[>input:focus-visible]:ring-[3px] has-[>input:focus-visible]:ring-ring/50 data-invalid:border-destructive data-checked:border-primary/40 data-checked:bg-primary/10",
-        "data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-disabled:opacity-50",
+        'group/questionnaire-choice relative flex min-h-11 cursor-pointer items-start gap-3 rounded-4xl border border-input px-4 py-3.5 text-start text-sm transition-colors outline-none select-none hover:bg-input/40 has-[>input:focus-visible]:border-ring has-[>input:focus-visible]:ring-[3px] has-[>input:focus-visible]:ring-ring/50 data-invalid:border-destructive data-checked:border-primary/40 data-checked:bg-primary/10',
+        'data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-disabled:opacity-50',
         className
       )}
       {...props}
@@ -144,23 +143,23 @@ function QuestionnaireChoice({
   )
 }
 
-function QuestionnaireChoiceDescription({
+const QuestionnaireChoiceDescription = ({
   className,
   ...props
-}: React.ComponentProps<"span">) {
+}: React.ComponentProps<'span'>) => {
   return (
     <span
       data-slot="questionnaire-choice-description"
-      className={cn("text-muted-foreground", className)}
+      className={cn('text-muted-foreground', className)}
       {...props}
     />
   )
 }
 
-function QuestionnaireInput({
+const QuestionnaireInput = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Input>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Input>) => {
   return (
     <div
       data-slot="questionnaire-input-wrapper"
@@ -169,8 +168,8 @@ function QuestionnaireInput({
       <QuestionnairePrimitive.Input
         data-slot="questionnaire-input"
         className={cn(
-          "h-9 min-h-11 w-full min-w-0 rounded-4xl border border-input bg-input/30 px-3 py-1 text-base transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 sm:min-h-0 md:text-sm dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-          "selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground",
+          'h-9 min-h-11 w-full min-w-0 rounded-4xl border border-input bg-input/30 px-3 py-1 text-base transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 sm:min-h-0 md:text-sm dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40',
+          'selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground',
           className
         )}
         {...props}
@@ -179,28 +178,28 @@ function QuestionnaireInput({
   )
 }
 
-function QuestionnaireError({
+const QuestionnaireError = ({
   className,
   ...props
-}: React.ComponentProps<typeof QuestionnairePrimitive.Error>) {
+}: React.ComponentProps<typeof QuestionnairePrimitive.Error>) => {
   return (
     <QuestionnairePrimitive.Error
       data-slot="questionnaire-error"
-      className={cn("mt-2 text-sm text-destructive", className)}
+      className={cn('mt-2 text-sm text-destructive', className)}
       {...props}
     />
   )
 }
 
-function QuestionnaireActions({
+const QuestionnaireActions = ({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<'div'>) => {
   return (
     <div
       data-slot="questionnaire-actions"
       className={cn(
-        "grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:min-h-9",
+        'grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:min-h-9',
         className
       )}
       {...props}
@@ -208,14 +207,14 @@ function QuestionnaireActions({
   )
 }
 
-function QuestionnairePrevious({
+const QuestionnairePrevious = ({
   children,
   className,
-  size = "default",
-  variant = "outline",
+  size = 'default',
+  variant = 'outline',
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Previous> &
-  Pick<React.ComponentProps<typeof Button>, "size" | "variant">) {
+  Pick<React.ComponentProps<typeof Button>, 'size' | 'variant'>) => {
   return (
     <QuestionnairePrimitive.Previous
       data-slot="questionnaire-previous"
@@ -223,24 +222,24 @@ function QuestionnairePrevious({
       data-variant={variant}
       className={cn(
         buttonVariants({ size, variant }),
-        "col-start-1 row-start-1 min-h-11 justify-self-start sm:min-h-0",
+        'col-start-1 row-start-1 min-h-11 justify-self-start sm:min-h-0',
         className
       )}
       {...props}
     >
-      {children ?? "Previous"}
+      {children ?? 'Previous'}
     </QuestionnairePrimitive.Previous>
   )
 }
 
-function QuestionnaireSkip({
+const QuestionnaireSkip = ({
   children,
   className,
-  size = "default",
-  variant = "outline",
+  size = 'default',
+  variant = 'outline',
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Skip> &
-  Pick<React.ComponentProps<typeof Button>, "size" | "variant">) {
+  Pick<React.ComponentProps<typeof Button>, 'size' | 'variant'>) => {
   return (
     <QuestionnairePrimitive.Skip
       data-slot="questionnaire-skip"
@@ -248,24 +247,24 @@ function QuestionnaireSkip({
       data-variant={variant}
       className={cn(
         buttonVariants({ size, variant }),
-        "col-start-2 row-start-1 min-h-11 justify-self-end sm:min-h-0",
+        'col-start-2 row-start-1 min-h-11 justify-self-end sm:min-h-0',
         className
       )}
       {...props}
     >
-      {children ?? "Skip"}
+      {children ?? 'Skip'}
     </QuestionnairePrimitive.Skip>
   )
 }
 
-function QuestionnaireNext({
+const QuestionnaireNext = ({
   children,
   className,
-  size = "default",
-  variant = "default",
+  size = 'default',
+  variant = 'default',
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Next> &
-  Pick<React.ComponentProps<typeof Button>, "size" | "variant">) {
+  Pick<React.ComponentProps<typeof Button>, 'size' | 'variant'>) => {
   return (
     <QuestionnairePrimitive.Next
       data-slot="questionnaire-next"
@@ -273,24 +272,24 @@ function QuestionnaireNext({
       data-variant={variant}
       className={cn(
         buttonVariants({ size, variant }),
-        "col-start-3 row-start-1 min-h-11 justify-self-end sm:min-h-0",
+        'col-start-3 row-start-1 min-h-11 justify-self-end sm:min-h-0',
         className
       )}
       {...props}
     >
-      {children ?? "Next"}
+      {children ?? 'Next'}
     </QuestionnairePrimitive.Next>
   )
 }
 
-function QuestionnaireSubmit({
+const QuestionnaireSubmit = ({
   children,
   className,
-  size = "default",
-  variant = "default",
+  size = 'default',
+  variant = 'default',
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Submit> &
-  Pick<React.ComponentProps<typeof Button>, "size" | "variant">) {
+  Pick<React.ComponentProps<typeof Button>, 'size' | 'variant'>) => {
   return (
     <QuestionnairePrimitive.Submit
       data-slot="questionnaire-submit"
@@ -298,12 +297,12 @@ function QuestionnaireSubmit({
       data-variant={variant}
       className={cn(
         buttonVariants({ size, variant }),
-        "col-start-3 row-start-1 min-h-11 justify-self-end sm:min-h-0",
+        'col-start-3 row-start-1 min-h-11 justify-self-end sm:min-h-0',
         className
       )}
       {...props}
     >
-      {children ?? "Submit"}
+      {children ?? 'Submit'}
     </QuestionnairePrimitive.Submit>
   )
 }
@@ -323,5 +322,5 @@ export {
   QuestionnaireProgress,
   QuestionnaireSkip,
   QuestionnaireSubmit,
-  QuestionnaireTitle,
+  QuestionnaireTitle
 }

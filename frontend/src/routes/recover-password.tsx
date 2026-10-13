@@ -1,75 +1,58 @@
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Button } from '@kds/ui/components/button'
+import { Input } from '@kds/ui/components/input'
+import { useMutation } from '@tanstack/react-query'
 import {
   createFileRoute,
   Link as RouterLink,
-  redirect,
-} from "@tanstack/react-router"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+  redirect
+} from '@tanstack/react-router'
+import { Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
 
-import { LoginService } from "@/client"
-import { AuthLayout } from "@/components/Common/AuthLayout"
+import { LoginService } from '@/client'
+import { AuthLayout } from '@/components/Common/auth-layout'
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { isLoggedIn } from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
+  FormMessage
+} from '@/components/ui/form'
+import { isLoggedIn, showAuthError } from '@/hooks/use-auth'
 
 const formSchema = z.object({
-  email: z.email({ message: "Invalid email address" }),
+  email: z.email({ message: '이메일 주소 형식을 확인해 주세요.' })
 })
 
 type FormData = z.infer<typeof formSchema>
 
-export const Route = createFileRoute("/recover-password")({
-  component: RecoverPassword,
-  beforeLoad: async () => {
-    if (isLoggedIn()) {
-      throw redirect({
-        to: "/",
-      })
-    }
-  },
-  head: () => ({
-    meta: [
-      {
-        title: "Recover Password - FastAPI Template",
-      },
-    ],
-  }),
-})
-
-function RecoverPassword() {
+const RecoverPassword = () => {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-    },
+      email: ''
+    }
   })
-  const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const recoverPassword = async (data: FormData) => {
     await LoginService.recoverPassword({
-      path: { email: data.email },
+      path: { email: data.email }
     })
   }
 
   const mutation = useMutation({
     mutationFn: recoverPassword,
     onSuccess: () => {
-      showSuccessToast("Password recovery email sent successfully")
+      toast.success('이메일을 확인해 주세요.', {
+        description: '가입된 이메일 주소라면 비밀번호 재설정 링크를 보냈어요.'
+      })
       form.reset()
     },
-    onError: handleError.bind(showErrorToast),
+    onError: showAuthError
   })
 
   const onSubmit = async (data: FormData) => {
@@ -81,25 +64,34 @@ function RecoverPassword() {
     <AuthLayout>
       <Form {...form}>
         <form
+          noValidate
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-8 sm:gap-10"
         >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Password Recovery</h1>
+          <div className="space-y-3 text-center">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              비밀번호가 기억나지 않나요?
+            </h1>
+            <p className="break-keep text-sm text-muted-foreground sm:text-base">
+              괜찮아요. 가입한 이메일을 알려주시면 새 비밀번호를 만들 수 있는 링크를 보내드릴게요.
+            </p>
           </div>
-
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>이메일</FormLabel>
                   <FormControl>
                     <Input
                       data-testid="email-input"
-                      placeholder="user@example.com"
+                      placeholder="name@example.com"
                       type="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      className="h-12 px-4 md:text-base"
                       {...field}
                     />
                   </FormControl>
@@ -108,19 +100,29 @@ function RecoverPassword() {
               )}
             />
 
-            <LoadingButton
+            <Button
               type="submit"
-              className="w-full"
-              loading={mutation.isPending}
+              className="h-12 w-full bg-foreground text-base text-background hover:bg-foreground/90"
+              disabled={mutation.isPending}
+              aria-busy={mutation.isPending}
             >
-              Continue
-            </LoadingButton>
+              {mutation.isPending && (
+                <Loader2
+                  aria-hidden="true"
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                />
+              )}
+              이메일로 링크 받기
+            </Button>
           </div>
 
-          <div className="text-center text-sm">
-            Remember your password?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
+          <div className="text-center text-sm text-muted-foreground">
+            비밀번호가 기억났나요?{' '}
+            <RouterLink
+              to="/login"
+              className="inline-flex min-h-11 items-center rounded-md px-1 font-medium text-foreground underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              로그인
             </RouterLink>
           </div>
         </form>
@@ -128,3 +130,20 @@ function RecoverPassword() {
     </AuthLayout>
   )
 }
+export const Route = createFileRoute('/recover-password')({
+  component: RecoverPassword,
+  beforeLoad: async () => {
+    if (isLoggedIn()) {
+      throw redirect({
+        to: '/'
+      })
+    }
+  },
+  head: () => ({
+    meta: [
+      {
+        title: '비밀번호 찾기'
+      }
+    ]
+  })
+})

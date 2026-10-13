@@ -26,10 +26,11 @@ repos:
     hooks:
       - id: local-biome-check
         name: biome check
-        entry: npm run lint
+        entry: bun run lint:check
         language: system
+        pass_filenames: false
         types: [text]
-        files: ^frontend/
+        files: ^(frontend/|packages/|scripts/).*\.(m?[jt]sx?|c[jt]s|jsonc?)$|^(biome\.json|package\.json|knip\.config\.ts)$
 
       - id: local-ruff-check
         name: ruff check

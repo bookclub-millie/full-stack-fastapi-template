@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "skills": {
+    "feature-sliced-design": {
+      "source": "feature-sliced/skills",
+      "sourceType": "github",
+      "skillPath": "feature-sliced-design/SKILL.md",
+      "computedHash": "ffed722f612ca9f9de3f35345c2beb40fb0d56a39391d85f27d6523cf52a07d3"
+    },
+    "nextjs": {
+      "source": "openai/plugins",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "plugins/vercel/skills/nextjs/SKILL.md",
+      "computedHash": "b430ff6623e72f582f63c18442d19e6b8c42558533d187d67aef8dda8f15b655"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
+    }
+  }
+}
