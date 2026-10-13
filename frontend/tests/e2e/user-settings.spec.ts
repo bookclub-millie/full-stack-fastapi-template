@@ -227,6 +227,7 @@ test('Selected mode is preserved across sessions', async ({ page }) => {
   await page.getByTestId('theme-button').click()
   await page.getByTestId('light-mode').click()
   await expect(page.locator('html')).toHaveClass(/\blight\b/)
+  await expect(page.getByTestId('light-mode')).toBeHidden()
 
   await page.getByTestId('theme-button').click()
   await page.getByTestId('dark-mode').click()
