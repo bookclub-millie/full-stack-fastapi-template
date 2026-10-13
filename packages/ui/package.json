@@ -1,0 +1,50 @@
+{
+  "name": "@kds/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts",
+    "./globals.css": "./src/styles/globals.css",
+    "./tokens.css": "./src/styles/tokens.css"
+  },
+  "sideEffects": ["**/*.css"],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@shadcn/react": "^0.3.1",
+    "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
+    "cn": "^0.4.0",
+    "date-fns": "^4.4.0",
+    "embla-carousel-react": "^8.6.0",
+    "input-otp": "^1.5.0",
+    "lucide-react": "^1.55.0",
+    "react-day-picker": "^10.0.2",
+    "react-resizable-panels": "^4.14.4",
+    "recharts": "3.8.0",
+    "shadcn": "^4.21.4",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8.71.1"
+  }
+}

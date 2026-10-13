@@ -23,6 +23,40 @@ To serve the frontend with FastAPI, run `bun run build` from the `frontend` dire
 
 Check `frontend/package.json` to see the other available commands.
 
+## KDS Design System
+
+This frontend is a client-rendered React SPA, not a Next.js app. Vite bundles it and TanStack Router handles navigation in the browser. The repository uses Bun workspaces (`frontend` and `packages/*`); Turborepo is not required.
+
+- `packages/ui` is the shared `@kds/ui` workspace package, migrated from `millie-ai-boilerplate`.
+- Open <http://localhost:5173/kds> for all 61 component specimens. This public route does not require login or a running API.
+- Gallery code lives in `src/components/kds`; the route is `src/routes/kds.tsx`. Charts and the carousel are lazy-loaded with React Suspense.
+- `src/index.css` imports `@kds/ui/globals.css` once. It supplies KDS tokens to both the gallery and the existing application. The existing `src/components/ui` components retain their APIs and use the shared semantic colors.
+- Pretendard fonts and their SIL Open Font License are in `public/fonts`.
+- The existing theme provider owns `vite-ui-theme` storage and synchronizes both the HTML `light`/`dark` class and KDS `data-mode`. Do not add a second theme provider.
+
+Use shared components directly:
+
+```tsx
+import { Button } from "@kds/ui/components/button"
+
+export function SaveAction() {
+  return <Button>Save</Button>
+}
+```
+
+For tooltips, wrap the consuming subtree in `TooltipProvider` from `@kds/ui/components/tooltip`, as the gallery route does. KDS components use Base UI; existing local components use Radix, so their compound-component APIs are not interchangeable.
+
+From the repository root:
+
+```bash
+bun run build
+bun run typecheck
+```
+
+The typecheck command checks the frontend (including existing test files) and the complete shared UI package. Keep `packages` in the Docker build context: both frontend build images need workspace sources to resolve `@kds/ui`.
+
+If Bun is not installed but Node.js/npm is available, use `npm exec --yes --package=bun -- bun install` and `npm exec --yes --package=bun -- bun run dev`. This runs Bun without changing the project's package manager or creating an npm lockfile.
+
 ## Removing the Frontend
 
 If you are developing an API-only app and want to remove the frontend, you can do it easily:

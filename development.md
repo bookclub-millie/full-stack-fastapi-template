@@ -42,6 +42,10 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
+The frontend is a Vite/React CSR app in a Bun workspace, not Next.js. The shared KDS package is `packages/ui` (`@kds/ui`), alongside `packages/react-email`. Visit <http://localhost:5173/kds> to work on the 61-component gallery without starting the backend or database. Existing authenticated pages still require the backend.
+
+Run `bun run build` and `bun run typecheck` from the repository root to check the frontend and shared UI. See [the frontend KDS guide](./frontend/README.md#kds-design-system) for imports, styles, fonts, and theme integration.
+
 ### Frontend Served by FastAPI
 
 Build the frontend from the `frontend` directory:

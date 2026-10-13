@@ -79,6 +79,12 @@ General development docs: [development.md](./development.md).
 
 This includes the local FastAPI and Vite workflow, Docker Compose services, `.env` configuration, and more.
 
+## Project Documentation
+
+Project planning and evidence templates: [docs/README.md](./docs/README.md).
+
+These templates cover the project brief, requirements, architecture, development process, security compliance, testing, and architecture decisions. Fill them with project-specific information and actual verification results; local setup instructions remain in [development.md](./development.md).
+
 ## Release Notes
 
 Check the file [release-notes.md](./release-notes.md).

@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json bun.lock /app/
 COPY frontend/package.json /app/frontend/
+COPY packages /app/packages
 
 WORKDIR /app/frontend
 
