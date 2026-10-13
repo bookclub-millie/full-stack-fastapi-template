@@ -66,7 +66,7 @@ class ParseTest(unittest.TestCase):
         results, untagged = parse_junit(JUNIT)
         self.assertEqual(
             [(r.tc, r.status) for r in results],
-            [("TC-01", "PASS"), ("TC-02", "FAIL"), ("TC-3", "SKIP")],
+            [("TC-01", "PASS"), ("TC-02", "FAIL"), ("TC-03", "SKIP")],
         )
         self.assertEqual(untagged, 1)
 
@@ -82,6 +82,25 @@ class ParseTest(unittest.TestCase):
             ],
         )
         self.assertEqual(untagged, 1)
+
+    def test_expected_failure_is_not_a_pass(self) -> None:
+        report = {
+            "suites": [
+                {
+                    "specs": [
+                        {
+                            "title": "TC-07 실패를 기대",
+                            "ok": True,
+                            "tests": [
+                                {"status": "expected", "expectedStatus": "failed"}
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+        results, _ = parse_playwright(json.dumps(report))
+        self.assertEqual([(r.tc, r.status) for r in results], [("TC-07", "FAIL")])
 
 
 class MergeRenderTest(unittest.TestCase):
@@ -142,7 +161,7 @@ class CollectTest(unittest.TestCase):
 
         with mock.patch.object(collect_evidence, "_gh", fake_gh):
             evidence, warnings = collect_evidence.collect("o/r", SHA)
-        self.assertEqual([e.tc for e in evidence], ["TC-01", "TC-02", "TC-3"])
+        self.assertEqual([e.tc for e in evidence], ["TC-01", "TC-02", "TC-03"])
         self.assertEqual(evidence[0].sources, [("Test Backend", "u3", "t3")])
         self.assertIn("Playwright Tests: 아직 실행 중입니다 (u2)", warnings)
         self.assertIn(

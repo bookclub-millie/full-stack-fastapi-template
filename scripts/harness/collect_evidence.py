@@ -6,9 +6,10 @@
 Reads the CI runs for that commit with the `gh` CLI (your login), downloads the
 test reports they uploaded (pytest JUnit XML from Test Backend, Playwright JSON
 from Playwright Tests), maps test names with a TC id (pytest `test_tc_01_...`,
-Playwright `TC-01 ...`) to PASS / FAIL / SKIP, and prints one row per TC for
-the 실행 결과 table. Copy the rows as they are; a TC that did not run is not
-printed and stays 미검증. See docs/adr/001-openspec-docs-traceability.md.
+Playwright `TC-01 ...`; TC-1 and TC-01 are the same TC) to PASS / FAIL / SKIP,
+and prints one row per TC for the 실행 결과 table. Copy the rows as they are;
+a TC that did not run is not printed and stays 미검증.
+See docs/adr/001-openspec-docs-traceability.md.
 """
 
 from __future__ import annotations
@@ -23,13 +24,16 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# -I drops the script directory from sys.path; add only this trusted directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import tcnames
+
 SOURCES = (
     # (workflow name, artifact name, report file, parser key)
     ("Test Backend", "junit-backend", "junit.xml", "junit"),
     ("Playwright Tests", "playwright-results", "results.json", "playwright"),
 )
-PYTEST_TC = re.compile(r"\btest_tc_?(\d+)", re.IGNORECASE)
-TITLE_TC = re.compile(r"\bTC-(\d+)\b")
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 ORDER = {"FAIL": 0, "PASS": 1, "SKIP": 2}
 
@@ -51,17 +55,13 @@ class Evidence:
     )  # (workflow, url, time)
 
 
-def _tc(number: str) -> str:
-    return f"TC-{number}"
-
-
 def parse_junit(text: str) -> tuple[list[TestResult], int]:
     """(results with a TC id, number of tests without one)."""
     results, untagged = [], 0
     for case in ET.fromstring(text).iter("testcase"):
         name = case.get("name", "")
-        match = PYTEST_TC.search(name)
-        if not match:
+        tc = tcnames.pytest_tc(name)
+        if not tc:
             untagged += 1
             continue
         if case.find("failure") is not None or case.find("error") is not None:
@@ -70,7 +70,7 @@ def parse_junit(text: str) -> tuple[list[TestResult], int]:
             status = "SKIP"
         else:
             status = "PASS"
-        results.append(TestResult(_tc(match.group(1)), name, status))
+        results.append(TestResult(tc, name, status))
     return results, untagged
 
 
@@ -81,18 +81,21 @@ def parse_playwright(text: str) -> tuple[list[TestResult], int]:
         nonlocal untagged
         for spec in suite.get("specs", []):
             title = spec.get("title", "")
-            match = TITLE_TC.search(title)
-            if not match:
+            tc = tcnames.title_tc(title)
+            if not tc:
                 untagged += 1
                 continue
-            statuses = {test.get("status") for test in spec.get("tests", [])}
+            tests = spec.get("tests", [])
+            statuses = {test.get("status") for test in tests}
             if statuses == {"skipped"}:
                 status = "SKIP"
+            elif any(test.get("expectedStatus") == "failed" for test in tests):
+                status = "FAIL"  # test.fail(): "passes" by failing, so no evidence
             elif spec.get("ok") and statuses <= {"expected", "skipped"}:
                 status = "PASS"
             else:  # unexpected, or flaky (CI runs with --fail-on-flaky-tests)
                 status = "FAIL"
-            results.append(TestResult(_tc(match.group(1)), title, status))
+            results.append(TestResult(tc, title, status))
         for child in suite.get("suites", []):
             walk(child)
 

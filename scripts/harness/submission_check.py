@@ -21,6 +21,8 @@ from pathlib import Path
 # -I drops the script directory from sys.path; add only this trusted directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import tc_check
+import tcnames
 import traceability
 from doctables import all_rows, cell, filled, table
 
@@ -178,8 +180,8 @@ def evaluate(repo: Repo, sha: str) -> list[Item]:
 
     # Change ids only: which changes exist and whether they are archived.
     listed = repo.git(
-        "ls-tree", "-r", "--name-only", sha, "--", openspec.CHANGES_DIR
-    ).splitlines()
+        "ls-tree", "-r", "-z", "--name-only", sha, "--", openspec.CHANGES_DIR
+    ).split("\0")
     changes = {
         found
         for path in listed
@@ -208,6 +210,33 @@ def evaluate(repo: Repo, sha: str) -> list[Item]:
             f"archive 안 된 변경: {', '.join(active)}"
             if active
             else "진행 중인 변경 없음",
+        )
+    )
+
+    tests = {
+        path: text
+        for path in repo.git(
+            "ls-tree", "-r", "-z", "--name-only", sha, "--", *tcnames.SCAN_ROOTS
+        ).split("\0")
+        if tcnames.is_test_file(path) and (text := repo.show(sha, path)) is not None
+    }
+    change_files = {
+        path: text
+        for path in listed
+        if path.endswith(".md") and (text := repo.show(sha, path)) is not None
+    }
+    tc_failures, _ = tc_check.strict(
+        texts[traceability.E2E], tests, openspec.changes_from_files(change_files)
+    )
+    shown = " / ".join(tc_failures[:5])
+    if len(tc_failures) > 5:
+        shown += f" 외 {len(tc_failures) - 5}건"
+    items.append(
+        (
+            "TC 연결",
+            WARN if tc_failures else OK,
+            shown
+            or "테스트 이름의 TC가 시나리오와 이어지고, archive된 변경의 AC마다 TC 테스트가 있음",
         )
     )
 

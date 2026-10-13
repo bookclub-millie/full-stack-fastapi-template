@@ -1,7 +1,7 @@
 import unittest
 
 from doctables import filled, table
-from traceability import check
+from traceability import check, check_tests
 
 from openspec import Change, Proposal, Requirement, Scenario
 
@@ -152,10 +152,6 @@ class TraceTest(unittest.TestCase):
             notes["OpenSpec의 AC가 docs/prd.md에 없음"],
             ["add-todo: AC-09", "other: AC-09"],
         )
-        self.assertEqual(
-            notes["archive된 변경의 AC에 e2e-test.md 테스트 시나리오가 없음"],
-            ["add-todo: AC-09"],
-        )
         self.assertEqual(notes["proposal에 요구사항·담당 줄이 없음"], ["other: 담당"])
         self.assertEqual(
             notes["시나리오의 연결 ID가 문서에 없음"],
@@ -185,6 +181,36 @@ class TraceTest(unittest.TestCase):
         )
         self.assertTrue(any("REQ-01" in f for f in failures))
 
+    def test_tc_padding_does_not_matter(self) -> None:
+        prd = PRD.replace("| TC-01 | 완료 |", "| TC-1 | 완료 |")
+        e2e = E2E.replace("| TC-01 | REQ-01", "| TC-001 | REQ-01")
+        failures, _ = check(
+            self.docs(**{"docs/prd.md": prd, "docs/e2e-test.md": e2e}),
+            [],
+            archived=set(),
+            touched=set(),
+            claims_changed=True,
+        )
+        self.assertFalse(any("REQ-01" in f for f in failures))
+
+    def test_manual_tc_is_not_evidence(self) -> None:
+        e2e = E2E.replace(
+            "| TC-01 | REQ-01 · AC-01 | E2E |", "| TC-01 | REQ-01 · AC-01 | 수동 |"
+        )
+        failures, _ = check(
+            self.docs(**{"docs/e2e-test.md": e2e}),
+            [],
+            archived=set(),
+            touched=set(),
+            claims_changed=True,
+        )
+        self.assertTrue(
+            any(
+                "REQ-01" in f and "수동 TC TC-01는 근거로 세지 않음" in f
+                for f in failures
+            )
+        )
+
     def test_made_up_sha_is_not_evidence(self) -> None:
         failures, _ = check(
             self.docs(),
@@ -204,6 +230,150 @@ class TraceTest(unittest.TestCase):
             sha_exists=lambda sha: True,
         )
         self.assertFalse(any("REQ-01" in f for f in failures))
+
+
+BACKEND = "backend/tests/api/test_todo.py"
+E2E_SPEC = "frontend/tests/e2e/todo.spec.ts"
+
+
+class CheckTestsTest(unittest.TestCase):
+    def run_check(self, tests, changes=(), *, archived=(), changed=(), e2e=E2E):
+        return check_tests(
+            {"docs/e2e-test.md": e2e},
+            tests,
+            list(changes),
+            archived=set(archived),
+            changed=set(changed),
+        )
+
+    def test_name_problems_fail_only_in_changed_files(self) -> None:
+        tests = {E2E_SPEC: 'test("TC01 잘못", async () => {})\n'}
+        failures, _ = self.run_check(tests, changed={E2E_SPEC})
+        self.assertEqual(len(failures), 1)
+        self.assertIn(f"{E2E_SPEC}:1", failures[0])
+        failures, notes = self.run_check(tests)
+        self.assertEqual(failures, [])
+        self.assertIn("테스트 이름의 TC 표기 (이번 PR에서 바뀌지 않음)", notes)
+
+    def test_tc_missing_from_scenarios(self) -> None:
+        tests = {BACKEND: "def test_tc_01_ok(): pass\ndef test_tc_09_new(): pass\n"}
+        failures, _ = self.run_check(tests, changed={BACKEND})
+        self.assertEqual(len(failures), 1)
+        self.assertIn("TC-09", failures[0])
+        # An unchanged test fails too when this PR edits the scenarios.
+        failures, _ = self.run_check(tests, changed={"docs/e2e-test.md"})
+        self.assertEqual(len(failures), 1)
+        failures, notes = self.run_check(tests)
+        self.assertEqual(failures, [])
+        self.assertIn("시나리오에 없는 TC 테스트 (이번 PR에서 바뀌지 않음)", notes)
+
+    def test_archiving_needs_a_test_for_every_ac(self) -> None:
+        archived = change("add-todo", archived=True)
+        failures, _ = self.run_check({}, [archived], archived={"add-todo"})
+        self.assertEqual(
+            failures,
+            [
+                (
+                    "add-todo의 AC-01: TC-01를 확인하는 실행되는 테스트가 없습니다 (pytest `test_tc_01_<설명>` 또는 "
+                    'Playwright `test("TC-01 <설명>", ...)`, 위치: backend/tests/(pytest), frontend/tests/e2e/(Playwright))'
+                ),
+                "docs/e2e-test.md: add-todo의 AC-09를 확인하는 테스트 시나리오(TC) 행이 없습니다",
+            ],
+        )
+        e2e = E2E.replace(
+            "| TC-02 | AC-04 | 단위 |",
+            "| TC-02 | AC-04 | 단위 |\n| TC-03 | AC-09 | 수동 |",
+        )
+        failures, notes = self.run_check(
+            {BACKEND: "def test_tc_1_reject(): pass\n"},
+            [archived],
+            archived={"add-todo"},
+            e2e=e2e,
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(
+            notes["수동 TC만 있는 AC (결과가 수집되지 않아 미검증으로 남음)"],
+            ["add-todo: AC-09"],
+        )
+
+    def test_test_must_be_in_the_file_tasks_md_names(self) -> None:
+        archived = change("add-todo", archived=True)
+        archived.test_tasks = [("TC-01", BACKEND)]
+        e2e = E2E.replace(
+            "| TC-02 | AC-04 | 단위 |",
+            "| TC-02 | AC-04 | 단위 |\n| TC-03 | AC-09 | 수동 |",
+        )
+        elsewhere = "backend/tests/api/test_other.py"
+        failures, _ = self.run_check(
+            {elsewhere: "def test_tc_01_reject(): pass\n"},
+            [archived],
+            archived={"add-todo"},
+            e2e=e2e,
+        )
+        self.assertEqual(
+            failures,
+            [
+                (
+                    f"add-todo의 tasks.md: {BACKEND}에서 TC-01 이름의 테스트를 찾지 못했습니다 (있는 곳: {elsewhere}). "
+                    "테스트를 옮기거나 tasks.md 경로를 고치세요"
+                )
+            ],
+        )
+        failures, _ = self.run_check(
+            {BACKEND: "def test_tc_01_reject(): pass\n"},
+            [archived],
+            archived={"add-todo"},
+            e2e=e2e,
+        )
+        self.assertEqual(failures, [])
+
+    def test_skipped_tests_and_unnamed_scenarios_do_not_cover(self) -> None:
+        archived = change("add-todo", archived=True)
+        archived.requirements[0].scenarios.append(Scenario(None, "이름만"))
+        e2e = E2E.replace(
+            "| TC-02 | AC-04 | 단위 |",
+            "| TC-02 | AC-04 | 단위 |\n| TC-03 | AC-9 | 수동 |",  # AC-9 == AC-09
+        )
+        failures, _ = self.run_check(
+            {
+                BACKEND: "import pytest\n@pytest.mark.skip\ndef test_tc_01_reject(): pass\n"
+            },
+            [archived],
+            archived={"add-todo"},
+            e2e=e2e,
+        )
+        self.assertEqual(len(failures), 2)
+        self.assertIn("AC ID가 없는 Scenario 1개", failures[0])
+        self.assertIn("건너뛰는 테스트만 있음: TC-01", failures[1])
+
+    def test_manual_must_be_exact(self) -> None:
+        archived = change("add-todo", archived=True)
+        e2e = E2E.replace(
+            "| TC-02 | AC-04 | 단위 |",
+            "| TC-02 | AC-04 | 단위 |\n| TC-03 | AC-09 | 자동(수동 보조) |",
+        )
+        failures, _ = self.run_check(
+            {BACKEND: "def test_tc_01_reject(): pass\n"},
+            [archived],
+            archived={"add-todo"},
+            e2e=e2e,
+        )
+        self.assertEqual(len(failures), 1)
+        self.assertIn("TC-03를 확인하는 실행되는 테스트가 없습니다", failures[0])
+
+    def test_already_archived_change_is_only_a_note(self) -> None:
+        failures, notes = self.run_check(
+            {}, [change("add-todo", archived=True)], changed={"docs/prd.md"}
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(len(notes["archive된 변경의 AC ↔ TC ↔ 테스트 누락"]), 2)
+
+    def test_scenarios_without_tests_are_noted_when_relevant(self) -> None:
+        title = "테스트가 없는 TC 시나리오 (구현 전이면 정상, 결과가 수집되지 않음)"
+        _, notes = self.run_check({}, changed={"docs/e2e-test.md"})
+        self.assertEqual(notes[title], ["TC-01", "TC-02"])
+        _, notes = self.run_check({}, changed={"backend/app/main.py"})
+        self.assertNotIn(title, notes)
 
 
 if __name__ == "__main__":

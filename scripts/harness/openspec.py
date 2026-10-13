@@ -10,6 +10,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import tcnames
+
 CHANGES_DIR = "openspec/changes"
 ARCHIVE_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 GENERIC_TITLES = {"proposal", "제안", "제안서"}
@@ -21,6 +23,8 @@ DELTA_SECTION = re.compile(
     r"^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements", re.IGNORECASE
 )
 TASK_ITEM = re.compile(r"^\s*-\s*\[([ xX])\]")
+# A test-writing task names its file: `- [ ] 2.3 TC-07 (AC-07) backend/tests/x/test_y.py::test_tc_07_...`
+TASK_TEST_PATH = re.compile(r"([\w./-]+\.(?:py|[cm]?[jt]sx?))::")
 
 
 @dataclass
@@ -54,6 +58,7 @@ class Change:
     proposal: Proposal
     requirements: list[Requirement]
     tasks: tuple[int, int]  # (done, total)
+    test_tasks: list[tuple[str, str]] = field(default_factory=list)  # (TC id, file)
 
     @property
     def scenarios(self) -> list[Scenario]:
@@ -130,6 +135,25 @@ def parse_tasks(text: str | None) -> tuple[int, int]:
     return sum(1 for mark in marks if mark in "xX"), len(marks)
 
 
+def parse_test_tasks(text: str | None) -> list[tuple[str, str]]:
+    """(TC id, test file) for each `<file>::<test name>` on a task line.
+
+    The TC comes from the test name after `::`, so other TC ids on the line
+    (for example the scenario row the task also adds) do not count.
+    """
+    found = []
+    for line in (text or "").splitlines():
+        if not TASK_ITEM.match(line):
+            continue
+        paths = list(TASK_TEST_PATH.finditer(line))
+        for i, path in enumerate(paths):
+            end = paths[i + 1].start() if i + 1 < len(paths) else len(line)
+            name = line[path.end() : end]
+            if tc := tcnames.pytest_tc(name) or tcnames.title_tc(name):
+                found.append((tc, path.group(1)))
+    return found
+
+
 def _read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
@@ -183,6 +207,7 @@ def changes_from_files(files: dict[str, str]) -> list[Change]:
                 proposal=parse_proposal(proposal),
                 requirements=[r for spec in specs for r in parse_spec(files[spec])],
                 tasks=parse_tasks(files.get(f"{directory}/tasks.md")),
+                test_tasks=parse_test_tasks(files.get(f"{directory}/tasks.md")),
             )
         )
     return changes

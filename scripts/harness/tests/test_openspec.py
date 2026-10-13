@@ -2,7 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from openspec import load_changes, parse_proposal, parse_spec, parse_tasks
+from openspec import (
+    load_changes,
+    parse_proposal,
+    parse_spec,
+    parse_tasks,
+    parse_test_tasks,
+)
 
 PROPOSAL = """# 할 일 등록
 요구사항: REQ-01, REQ-02
@@ -93,6 +99,27 @@ class TasksTest(unittest.TestCase):
     def test_progress(self) -> None:
         self.assertEqual(parse_tasks(TASKS), (2, 3))
         self.assertEqual(parse_tasks(None), (0, 0))
+
+    def test_test_tasks_name_their_file(self) -> None:
+        text = (
+            "- [ ] 2.3 TC-07 (AC-07) backend/tests/api/routes/test_items.py::test_tc_07_reject\n"
+            '- [x] 2.4 TC-8 (AC-08) `frontend/tests/e2e/items.spec.ts::"TC-08 저장"`\n'
+            "- [ ] 3.1 docs/e2e-test.md 테스트 시나리오에 TC-07 행 추가\n"
+            "TC-09 backend/tests/test_x.py::test_tc_09 (작업 줄이 아님)\n"
+            # The TC comes from the name after ::, not from other ids on the line.
+            "- [ ] 2.5 Replace TC-03 check: backend/tests/a.py::test_tc_10_x, "
+            'TC-11 (AC-11) frontend/tests/e2e/b.spec.ts::"TC-11 y"\n'
+            "- [ ] 2.6 backend/tests/c.py::test_without_tc\n"
+        )
+        self.assertEqual(
+            parse_test_tasks(text),
+            [
+                ("TC-07", "backend/tests/api/routes/test_items.py"),
+                ("TC-08", "frontend/tests/e2e/items.spec.ts"),
+                ("TC-10", "backend/tests/a.py"),
+                ("TC-11", "frontend/tests/e2e/b.spec.ts"),
+            ],
+        )
 
 
 class LoadChangesTest(unittest.TestCase):

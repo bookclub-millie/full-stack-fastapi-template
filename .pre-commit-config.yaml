@@ -81,3 +81,10 @@ repos:
         files: ^\.github\/workflows\/
         require_serial: true
         pass_filenames: false
+
+      - id: tc-check
+        name: TC 이름 ↔ docs/e2e-test.md
+        language: unsupported
+        entry: python3 -I scripts/harness/tc_check.py
+        files: ^(backend/|frontend/|packages/|openspec/changes/|docs/e2e-test\.md$|scripts/harness/(tcnames|traceability|tc_check|openspec|doctables)\.py$)
+        pass_filenames: false

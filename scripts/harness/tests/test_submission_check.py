@@ -84,6 +84,19 @@ class SubmissionCheckTest(unittest.TestCase):
         self.assertNotIn(FAIL, results.values())
         self.assertEqual(results["필수 REQ 근거"], OK)
         self.assertEqual(results["README 연결"], OK)
+        self.assertEqual(results["TC 연결"], OK)
+
+    def test_tc_link_problems_warn(self) -> None:
+        files = self.docs(
+            **{"backend/tests/api/test_x.py": "def test_tc_09_orphan():\n    pass\n"}
+        )
+        sha = self.commit(files)
+        detail = {
+            name: (mark, text)
+            for name, mark, text in evaluate(Repo(self.tmp.name), sha)
+        }
+        self.assertEqual(detail["TC 연결"][0], WARN)
+        self.assertIn("TC-09", detail["TC 연결"][1])
 
     def test_missing_doc_and_unsupported_completion_fail(self) -> None:
         files = self.docs(**{"docs/e2e-test.md": "## 실행 결과\n"})
