@@ -81,9 +81,7 @@ This includes the local FastAPI and Vite workflow, Docker Compose services, `.en
 
 ## Project Documentation
 
-Project planning and evidence templates: [docs/README.md](./docs/README.md).
-
-These templates cover the project brief, requirements, architecture, development process, security compliance, testing, and architecture decisions. Fill them with project-specific information and actual verification results; local setup instructions remain in [development.md](./development.md).
+서비스 개요·요구사항·설계·개발·보안·테스트 문서는 [문서 안내](./docs/README.md)를 참고한다.
 
 ## Release Notes
 
