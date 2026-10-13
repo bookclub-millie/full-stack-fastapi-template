@@ -1,7 +1,7 @@
 import unittest
 
 from doctables import filled, table
-from traceability import check, check_tests
+from traceability import Snapshot, check, check_ids, check_tests
 
 from openspec import Change, Proposal, Requirement, Scenario
 
@@ -375,6 +375,149 @@ class CheckTestsTest(unittest.TestCase):
         self.assertEqual(notes[title], ["TC-01", "TC-02"])
         _, notes = self.run_check({}, changed={"backend/app/main.py"})
         self.assertNotIn(title, notes)
+
+
+def spec_change(change_id: str, req: str, acs=("AC-01",), *, added=True) -> Change:
+    return Change(
+        id=change_id,
+        path=f"openspec/changes/{change_id}",
+        archived=False,
+        proposal=Proposal(
+            title="t", requirements=[req], owner="gray", scope="필수", why="w"
+        ),
+        requirements=[
+            Requirement(req, "이름", [Scenario(ac, "s") for ac in acs], added=added)
+        ],
+        tasks=(0, 0),
+    )
+
+
+PRD_HEAD = """## 요구사항 추적표
+
+| REQ | 요구사항 | 우선순위 | AC·인수조건 | FLOW | Issue·코드 | TC | 상태 |
+|---|---|---|---|---|---|---|---|
+"""
+
+
+class CheckIdsTest(unittest.TestCase):
+    def prd(self, *rows: tuple[str, str]) -> dict[str, str]:
+        return {
+            "docs/prd.md": PRD_HEAD
+            + "".join(f"| {r} | x | 필수 | {a} | | | | 계획 |\n" for r, a in rows)
+        }
+
+    def run_ids(
+        self, docs, changes, base, tip=None, *, changed=(), archived=(), removed=()
+    ):
+        return check_ids(
+            docs,
+            changes,
+            base,
+            tip or base,
+            changed=set(changed),
+            archived=set(archived),
+            removed=set(removed),
+        )
+
+    def test_number_claimed_by_another_change_fails_with_next_number(self) -> None:
+        a = spec_change("a", "REQ-01", ("AC-01", "AC-02"))
+        base = Snapshot(self.prd(("REQ-01", "AC-01, AC-02")), [a])
+        failures, _ = self.run_ids(
+            self.prd(("REQ-01", "AC-01, AC-02"), ("REQ-1", "AC-3")),
+            [spec_change("b", "REQ-1", ("AC-03",))],
+            base,
+            changed={"docs/prd.md"},
+        )
+        hint = (
+            "다음 빈 번호: REQ-02 (`python3 -I scripts/harness/next_ids.py --github`)"
+        )
+        self.assertEqual(
+            failures,
+            [
+                (
+                    "docs/prd.md: REQ-01 행이 둘 이상입니다. 같은 항목이면 한 행으로 합치세요"
+                    f"(새 AC는 그 REQ 행의 AC 칸에 추가). 다른 항목이면 번호를 바꾸세요. {hint}"
+                ),
+                f"b: REQ-01 번호는 기준 브랜치의 변경 a에서 이미 쓰고 있습니다. 번호를 바꾸세요. {hint}",
+            ],
+        )
+
+    def test_proposal_merged_after_branching_is_seen_on_the_tip(self) -> None:
+        empty = Snapshot(self.prd(), [])
+        tip = Snapshot(self.prd(), [spec_change("a", "REQ-01")])
+        failures, _ = self.run_ids(self.prd(), [spec_change("b", "REQ-01")], empty, tip)
+        self.assertEqual(len(failures), 2)  # REQ-01 and its AC-01
+        self.assertTrue(all("기준 브랜치의 변경 a" in f for f in failures))
+        # A change this PR renames or deletes no longer owns its numbers.
+        failures, _ = self.run_ids(
+            self.prd(), [spec_change("b", "REQ-01")], empty, tip, removed={"a"}
+        )
+        self.assertEqual(failures, [])
+
+    def test_own_modified_and_docs_only_numbers_are_fine(self) -> None:
+        mine = spec_change("a", "REQ-01")
+        base = Snapshot(self.prd(("REQ-01", "AC-01")), [mine])
+        failures, notes = self.run_ids(
+            self.prd(("REQ-01", "AC-01")),
+            [mine, spec_change("c", "REQ-01", added=False)],
+            base,
+        )
+        self.assertEqual((failures, notes), ([], {}))
+        # PRD written first: the number is in the docs table but no change defines it.
+        failures, notes = self.run_ids(
+            self.prd(("REQ-01", "AC-01")),
+            [spec_change("b", "REQ-01")],
+            Snapshot(self.prd(("REQ-01", "AC-01")), []),
+        )
+        self.assertEqual(failures, [])
+        self.assertIn("기준 브랜치 문서 표에 이미 있는 번호를 새로 정의함", notes)
+
+    def test_new_scenario_under_modified_requirement(self) -> None:
+        a = spec_change("a", "REQ-01", ("AC-01",))
+        other = spec_change("o", "REQ-02", ("AC-05",))
+        base = Snapshot(self.prd(), [a, other])
+        modified = spec_change("b", "REQ-01", ("AC-01", "AC-05"), added=False)
+        failures, _ = self.run_ids(self.prd(), [modified], base)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("AC-05 번호는 기준 브랜치의 변경 o", failures[0])
+
+    def test_rows_lost_and_duplicates_already_on_base(self) -> None:
+        base_docs = self.prd(
+            ("REQ-01", "AC-01"), ("REQ-01", "AC-02"), ("REQ-03", "AC-03")
+        )
+        failures, notes = self.run_ids(
+            self.prd(("REQ-01", "AC-01"), ("REQ-01", "AC-02")),
+            [],
+            Snapshot(base_docs, []),
+            changed={"docs/prd.md"},
+        )
+        self.assertEqual(len(failures), 2)  # REQ-03 and AC-03 rows lost
+        self.assertIn("기준 브랜치에 있던 REQ-03 행이 사라졌습니다", failures[0])
+        self.assertIn("기준 브랜치에 있던 AC-03 행이 사라졌습니다", failures[1])
+        self.assertEqual(len(notes["ID 중복 (이번 PR 전부터 있음)"]), 1)
+
+    def test_one_pr_defines_a_number_twice_and_archive_needs_rows(self) -> None:
+        failures, _ = self.run_ids(
+            self.prd(),
+            [spec_change("b", "REQ-01"), spec_change("c", "REQ-01")],
+            Snapshot(self.prd(), []),
+        )
+        self.assertTrue(any("변경 b, c에서 함께 정의합니다" in f for f in failures))
+        failures, _ = self.run_ids(
+            self.prd(("REQ-01", "")),
+            [spec_change("b", "REQ-01", ("AC-01",))],
+            Snapshot(self.prd(), []),
+            archived={"b"},
+        )
+        self.assertEqual(
+            failures,
+            [
+                (
+                    "archive하는 변경 b: 문서 표에 없는 번호 AC-01 "
+                    "(REQ·AC는 docs/prd.md 요구사항 추적표, TC는 docs/e2e-test.md 테스트 시나리오에 행 추가)"
+                )
+            ],
+        )
 
 
 if __name__ == "__main__":

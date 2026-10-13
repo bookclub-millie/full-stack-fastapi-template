@@ -86,6 +86,11 @@ class SubmissionCheckTest(unittest.TestCase):
         self.assertEqual(results["README 연결"], OK)
         self.assertEqual(results["TC 연결"], OK)
 
+    def test_duplicate_ids_fail(self) -> None:
+        prd = PRD + "| REQ-01 | 목록 | 추가 | AC-02 | | | | 계획 |\n"
+        results = self.results(self.commit(self.docs(**{"docs/prd.md": prd})))
+        self.assertEqual(results["ID 중복"], FAIL)
+
     def test_tc_link_problems_warn(self) -> None:
         files = self.docs(
             **{"backend/tests/api/test_x.py": "def test_tc_09_orphan():\n    pass\n"}

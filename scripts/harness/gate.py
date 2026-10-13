@@ -22,6 +22,7 @@ from pathlib import Path
 # -I drops the script directory from sys.path; add only this trusted directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import idregistry
 import lockfiles
 import registry
 import report
@@ -295,10 +296,45 @@ def check_supply_chain(
     return _check("supply-chain", title, status, failures), young
 
 
+def _change_ids(git: Git, rev: str) -> set[str]:
+    return {
+        found[1]
+        for path in git.ls_tree(rev, openspec.CHANGES_DIR)
+        if (found := openspec.locate(path))
+    }
+
+
+def _snapshot(git: Git, rev: str) -> traceability.Snapshot:
+    """Docs tables, every OpenSpec change and the main specs at `rev`."""
+    texts = git.show_many(
+        rev,
+        [p for p in git.ls_tree(rev, "openspec") if p.endswith(".md")],
+    )
+    specs = [
+        requirement
+        for path, text in texts.items()
+        if path.startswith(openspec.SPECS_DIR + "/") and path.endswith("/spec.md")
+        for requirement in openspec.parse_spec(text)
+    ]
+    return traceability.Snapshot(
+        docs={path: git.show(rev, path) for path in idregistry.DOCS},
+        changes=openspec.changes_from_files(texts),
+        specs=specs,
+    )
+
+
 def check_docs(
-    git: Git, base: str, head: str, changes: list[signals.FileChange]
+    git: Git,
+    base: str,
+    head: str,
+    changes: list[signals.FileChange],
+    base_tip: str | None = None,
 ) -> tuple[dict, list[dict]]:
-    """OpenSpec ↔ docs ↔ TC-named tests traceability (ADR-001): (check, notes)."""
+    """OpenSpec ↔ docs ↔ TC-named tests traceability (ADR-001): (check, notes).
+
+    base is the merge base; base_tip the base branch head, which may hold
+    proposals merged after this PR branched off (their numbers are taken).
+    """
     archived: set[str] = set()
     touched: set[str] = set()
     existed_at_base: dict[str, bool] = {}
@@ -357,10 +393,24 @@ def check_docs(
     test_failures, test_notes = traceability.check_tests(
         docs, tests, parsed, archived=archived, changed=changed
     )
-    failures += test_failures
-    for note_title, items in test_notes.items():
+    base_snapshot = _snapshot(git, base)
+    tip_snapshot = (
+        _snapshot(git, base_tip) if base_tip and base_tip != base else base_snapshot
+    )
+    removed = _change_ids(git, base) - _change_ids(git, head)
+    id_failures, id_notes = traceability.check_ids(
+        docs,
+        parsed,
+        base_snapshot,
+        tip_snapshot,
+        changed=changed,
+        archived=archived,
+        removed=removed,
+    )
+    failures += test_failures + id_failures
+    for note_title, items in [*test_notes.items(), *id_notes.items()]:
         notes.setdefault(note_title, []).extend(items)
-    title = "문서 추적성 (archive 기록·근거 없는 완료·TC 연결)"
+    title = "문서 추적성 (archive 기록·근거 없는 완료·TC 연결·ID 중복)"
     check = _check("docs", title, "fail" if failures else "pass", failures)
     return check, [{"title": t, "items": items} for t, items in notes.items()]
 
@@ -376,9 +426,11 @@ def analyze(
     zizmor_log: str | None,
     now: datetime | None = None,
     lookup: Lookup = registry.lookup,
+    base_tip: str | None = None,
 ) -> dict:
     git = Git(repo)
     base, head = git.verify(base), git.verify(head)
+    base_tip = git.verify(base_tip) if base_tip else None
     now = now or datetime.now(timezone.utc)
 
     changes = collect_changes(git, base, head)
@@ -389,7 +441,7 @@ def analyze(
         check_workflows(zizmor_exit, zizmor_log),
         supply_chain,
     ]
-    docs_check, notes = check_docs(git, base, head, changes)
+    docs_check, notes = check_docs(git, base, head, changes, base_tip)
     checks.append(docs_check)
 
     found = signals.collect_signals(changes)
@@ -413,6 +465,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="PR checkout (read as data)")
     parser.add_argument("--base", required=True, help="merge base commit")
+    parser.add_argument(
+        "--base-tip", help="base branch head (numbers merged since the merge base)"
+    )
     parser.add_argument("--head", required=True, help="PR head commit")
     parser.add_argument("--gitleaks-exit", required=True)
     parser.add_argument("--gitleaks-report")
@@ -430,6 +485,7 @@ def main() -> int:
         gitleaks_report=args.gitleaks_report,
         zizmor_exit=args.zizmor_exit,
         zizmor_log=args.zizmor_log,
+        base_tip=args.base_tip,
     )
     Path(args.json_path).write_text(json.dumps(result, ensure_ascii=False, indent=2))
     Path(args.markdown).write_text(report.render(result))

@@ -21,6 +21,7 @@ from pathlib import Path
 # -I drops the script directory from sys.path; add only this trusted directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import idregistry
 import tc_check
 import tcnames
 import traceability
@@ -225,9 +226,8 @@ def evaluate(repo: Repo, sha: str) -> list[Item]:
         for path in listed
         if path.endswith(".md") and (text := repo.show(sha, path)) is not None
     }
-    tc_failures, _ = tc_check.strict(
-        texts[traceability.E2E], tests, openspec.changes_from_files(change_files)
-    )
+    all_changes = openspec.changes_from_files(change_files)
+    tc_failures, _ = tc_check.strict(texts[traceability.E2E], tests, all_changes)
     shown = " / ".join(tc_failures[:5])
     if len(tc_failures) > 5:
         shown += f" 외 {len(tc_failures) - 5}건"
@@ -237,6 +237,29 @@ def evaluate(repo: Repo, sha: str) -> list[Item]:
             WARN if tc_failures else OK,
             shown
             or "테스트 이름의 TC가 시나리오와 이어지고, archive된 변경의 AC마다 TC 테스트가 있음",
+        )
+    )
+
+    owners: dict[str, set[str]] = {}
+    for change in all_changes:
+        for identifier in idregistry.claimed(change):
+            owners.setdefault(identifier, set()).add(change.id)
+    clashes = [
+        f"{identifier}: 변경 {', '.join(sorted(ids))}"
+        for identifier, ids in sorted(owners.items())
+        if len(ids) > 1
+    ]
+    duplicated = [
+        f"{doc}: {identifier} 행이 둘 이상"
+        for identifier, doc in sorted(
+            idregistry.duplicates({p: texts.get(p) for p in idregistry.DOCS}).items()
+        )
+    ] + clashes
+    items.append(
+        (
+            "ID 중복",
+            FAIL if duplicated else OK,
+            " / ".join(duplicated) or "REQ·AC·FLOW·TC 번호가 겹치지 않음",
         )
     )
 
