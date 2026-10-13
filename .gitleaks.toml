@@ -1,0 +1,8 @@
+# Secret scanning rules for the harness gate (and local `gitleaks git`).
+# The gate always loads this file from the base branch, so a PR can't relax it.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Lockfile integrity hashes and the generated API client"
+paths = ['''(^|/)(bun\.lock|uv\.lock)$''', '''^frontend/src/client/''']

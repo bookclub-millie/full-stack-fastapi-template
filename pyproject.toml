@@ -9,6 +9,11 @@ github-actions = [
     "smokeshow >=0.5.0",
 ]
 
+[tool.uv]
+# Supply-chain cooldown: ignore releases newer than 7 days (bunfig.toml does the same for bun).
+# Exceptions go in exclude-newer-package, e.g. { certifi = false }.
+exclude-newer = "7 days"
+
 [tool.uv.workspace]
 members = ["backend"]
 

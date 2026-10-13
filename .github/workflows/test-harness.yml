@@ -1,0 +1,30 @@
+name: Test Harness
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - scripts/harness/**
+  pull_request:
+    paths:
+      - scripts/harness/**
+
+permissions: {}
+
+concurrency:
+  group: test-harness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Stdlib only, same interpreter the gate uses (ubuntu-latest python3).
+      - run: python3 -I -m unittest discover -s scripts/harness/tests -t scripts/harness -v
