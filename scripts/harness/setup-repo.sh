@@ -12,6 +12,9 @@ repo="${1:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Configuring $repo"
 
+# Issues hold the development tasks (OpenSpec sync, progress rate); merged branches go away.
+gh api -X PATCH "repos/$repo" -F has_issues=true -F delete_branch_on_merge=true --silent
+
 # GITHUB_TOKEN is read-only unless a workflow asks for more, and can't approve PRs.
 gh api -X PUT "repos/$repo/actions/permissions/workflow" \
   -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false

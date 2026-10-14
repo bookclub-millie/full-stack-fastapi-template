@@ -247,6 +247,72 @@ test('archived change with a failing or missing check stays open with one pendin
   )
 })
 
+const NOW = Date.parse('2026-10-14T12:00:00Z')
+const mergedPr = (number, sha, minutesAgo) => ({
+  number,
+  merged_at: new Date(NOW - minutesAgo * 60000).toISOString(),
+  head: { sha },
+  user: { login: 'gray', type: 'User' }
+})
+
+test('archive sync waits once for checks still running, after other Issues', async () => {
+  const checks = {
+    h1: [
+      { id: 1, name: 'test-backend', status: 'in_progress', conclusion: null }
+    ],
+    h2: []
+  }
+  const { github, state } = fakeGitHub({
+    checks,
+    pulls: { a1: [mergedPr(1, 'h1', 2)], a2: [mergedPr(2, 'h2', 3)] }
+  })
+  let slept = 0
+  await run(
+    github,
+    [
+      change({ archived: true, archive_commit: 'a1' }),
+      change({
+        id: 'other',
+        archived: true,
+        archive_commit: 'a2',
+        title: '[REQ-02] 다른 것'
+      }),
+      change({ id: 'fresh', title: '[REQ-03] 새 제안' })
+    ],
+    {
+      waitForChecksMs: 90000,
+      pollMs: 30000,
+      now: () => NOW,
+      sleep: async () => {
+        // Both Issues and the new proposal's Issue exist before any wait.
+        assert.equal(state.issues.length, 3)
+        slept += 1
+        if (slept === 2) checks.h1 = passing()
+      }
+    }
+  )
+  assert.equal(slept, 3) // one shared deadline: 90 s at 30 s each
+  assert.equal(state.issues[0].state, 'closed')
+  assert.equal(state.issues[1].state, 'open') // h2 checks never reported
+})
+
+test('old archives and runs without a wait budget do not wait', async () => {
+  const { github, state } = fakeGitHub({
+    checks: {},
+    pulls: { a1: [mergedPr(1, 'h1', 60)] }
+  })
+  let slept = 0
+  await run(github, [change({ archived: true, archive_commit: 'a1' })], {
+    waitForChecksMs: 600000,
+    now: () => NOW,
+    sleep: async () => {
+      slept += 1
+    }
+  })
+  assert.equal(slept, 0)
+  assert.equal(state.issues[0].state, 'open')
+})
+
 test('change created and archived in one merge gets an Issue that is completed', async () => {
   const { github, state } = fakeGitHub({ checks: { a1: passing() } })
   const summary = await run(github, [

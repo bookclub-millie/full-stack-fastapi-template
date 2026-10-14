@@ -26,8 +26,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: frontend-quality-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Manual evidence runs (scripts/harness/run_evidence.py) get their own group and are
+  # never cancelled by pushes; only superseded PR runs are cancelled.
+  group: frontend-quality-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   frontend-quality:

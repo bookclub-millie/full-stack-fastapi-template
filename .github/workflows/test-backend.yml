@@ -5,6 +5,8 @@ on:
     branches:
       - master
   pull_request:
+  # Evidence for a submission commit: scripts/harness/run_evidence.py
+  workflow_dispatch:
 permissions:
   contents: read
 

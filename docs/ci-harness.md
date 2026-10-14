@@ -15,9 +15,9 @@ AI 코딩 에이전트와 함께 개발할 때 PR이 머지되기 전에 무엇�
 |---|---|---|---|
 | [Harness Gate](../.github/workflows/harness-gate.yml) | PR 열림·push·라벨 | 기본 브랜치 코드, PR은 데이터 | `harness/checks`, `harness/ack` |
 | [Test Frontend](../.github/workflows/test-frontend.yml) | PR·master push | PR 코드 실행, 비밀값 없음 | `test-frontend` |
-| [Test Backend](../.github/workflows/test-backend.yml) | PR·master push | PR 코드 실행, 비밀값 없음 | `test-backend` |
+| [Test Backend](../.github/workflows/test-backend.yml) | PR·master push·수동 | PR 코드 실행, 비밀값 없음 | `test-backend` |
 | [AI Review](../.github/workflows/ai-review.yml) | 같은 저장소의 사람 PR | 모델 job은 읽기 전용, 게시 job은 모델 없음 | 아니요 |
-| [OpenSpec Issues](../.github/workflows/openspec-issues.yml) | master push(`openspec/**`)·매일·수동 | 기본 브랜치 코드, Issue 쓰기 권한 | 아니요 |
+| [OpenSpec Issues](../.github/workflows/openspec-issues.yml) | master push(`openspec/**`)·매시간·수동 | 기본 브랜치 코드, Issue 쓰기 권한 | 아니요 |
 | [Submission Check](../.github/workflows/submission-check.yml) | 수동 실행 | 기본 브랜치 코드, 읽기 권한만 | 아니요 |
 | [Test Harness](../.github/workflows/test-harness.yml) | `scripts/harness/` 변경 | PR 코드 실행 | 아니요 |
 | [Zizmor](../.github/workflows/zizmor.yml) | PR·master push | PR 코드를 정적 분석 | 아니요 (게이트가 다시 검사) |
@@ -99,6 +99,12 @@ python3 scripts/harness/collect_evidence.py --sha <PR head의 40자 SHA>
 
 Actions → **Submission Check** → Run workflow에서 제출할 40자 SHA를 넣는다(비우면 브랜치 최신 커밋). 로컬에서는 `python3 -I scripts/harness/submission_check.py --sha <SHA> --github owner/repo`로 같은 결과를 본다.
 
+push와 PR은 바뀐 파일에 필요한 시험만 돌리므로, 문서만 바꾼 커밋에는 E2E·vitest 결과가 없다. 제출 직전에는 다음 순서로 최종 코드의 결과를 남긴다.
+
+1. `python3 scripts/harness/run_evidence.py --ref master`: Test Backend·Playwright Tests·Frontend Quality를 master에서 수동 실행(모든 시험)하고 끝나면 `e2e-test.md` 실행 결과 행을 출력한다.
+2. 출력 행을 `e2e-test.md`에 옮기고 상태 문서를 갱신하는 PR을 머지한다. 이 커밋은 문서만 바꾸므로 시험한 코드와 같다.
+3. 그 머지 커밋으로 Submission Check를 돌린다. 각 TC의 최신 결과 이후 코드(문서·OpenSpec 밖)가 바뀌었으면 "시험 결과"가 ⚠️로 알린다.
+
 | 항목 | ❌ (제출 전 수정) | ⚠️ (확인 필요) |
 |---|---|---|
 | 소스 SHA | 40자가 아니거나 저장소에 없음 | |
@@ -123,7 +129,7 @@ OpenSpec 변경 하나를 개발 작업 Issue 하나로 맞춘다([ADR-001](adr/
 |---|---|
 | 제안이 머지됨 | `[REQ-xx] 기능 이름` Issue를 만든다. 목적·완료 조건(AC)·담당자·연결 문서를 채우고 `openspec` 라벨을 단다. |
 | 제안이 바뀜 | 열린 Issue의 자동 구역만 갱신한다. 사람이 체크한 항목과 근거 섹션은 그대로 둔다. |
-| archive가 머지됨 | 근거(커밋, PR, `test-backend`·`test-frontend`·`alls-green-playwright` 결과)를 적는다. 모두 success면 Close as completed로 닫고, 아니면 보류 코멘트를 남기고 매일 다시 확인한다. |
+| archive가 머지됨 | 근거(커밋, PR, `test-backend`·`test-frontend`·`alls-green-playwright` 결과)를 적는다. 모두 success면 Close as completed로 닫는다. master push로 돈 실행은 15분 안에 머지된 archive의 검사가 아직 돌면, 다른 Issue를 모두 처리한 뒤 한꺼번에 최대 10분 기다린다. 그래도 끝나지 않았거나 실패면 보류 코멘트를 남기고 매시간 다시 확인한다. |
 | archive 없이 삭제됨 | 사유를 남기고 Close as not planned로 닫는다. 한 번에 6건 이상이면 닫지 않고 경고만 낸다. |
 | 사람이 닫음 | 다시 열지 않는다. |
 
@@ -156,6 +162,7 @@ gh secret set ANTHROPIC_API_KEY --env ai-review --repo owner/repo   # AI 리뷰�
 
 - `GITHUB_TOKEN` 기본 권한을 읽기 전용으로 바꾸고, PR 승인 권한을 끈다.
 - SHA로 고정하지 않은 action 사용을 막는다.
+- Issues를 켜고, 머지된 브랜치를 자동으로 지운다.
 - 외부 기여자의 fork PR 워크플로는 실행 전에 승인을 요구한다.
 - `harness-ack` 라벨과 `ai-review` environment를 만든다.
 - 기본 브랜치 ruleset을 만든다.

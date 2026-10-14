@@ -171,12 +171,53 @@ def evaluate(repo: Repo, sha: str) -> list[Item]:
     results = table(texts[traceability.E2E], "실행 결과")
     with_sha = [r for r in results if traceability.SHA40.search(cell(r, "소스 SHA"))]
     at_sha = [r for r in with_sha if sha in cell(r, "소스 SHA")]
-    items.append(
-        (
-            "시험 결과",
-            OK if with_sha else WARN,
-            f"실행 결과 {len(results)}행, SHA 있음 {len(with_sha)}행, 제출 SHA와 같은 행 {len(at_sha)}행",
+    # Each TC needs a result from a commit with the submitted code: only docs,
+    # OpenSpec and Markdown files may differ between them.
+    shas_by_tc: dict[str, set[str]] = {}
+    for row in with_sha:
+        found = traceability.SHA40.search(cell(row, "소스 SHA"))
+        for tc in tcnames.ids(cell(row, "TC")):
+            if found:
+                shas_by_tc.setdefault(tc, set()).add(found.group())
+    same_code: dict[str, bool | None] = {}  # None: commit not in this clone
+    for evidence_sha in {s for shas in shas_by_tc.values() for s in shas}:
+        same_code[evidence_sha] = (
+            repo.ok(
+                "diff",
+                "--quiet",
+                evidence_sha,
+                sha,
+                "--",
+                ".",
+                ":(exclude)docs",
+                ":(exclude)openspec",
+                ":(exclude,glob)**/*.md",
+            )
+            if repo.exists(evidence_sha)
+            else None
         )
+    stale = sorted(
+        tc
+        for tc, shas in shas_by_tc.items()
+        if not any(same_code[s] for s in shas)
+        and any(same_code[s] is False for s in shas)
+    )
+    unknown = sorted(
+        tc for tc, shas in shas_by_tc.items() if all(same_code[s] is None for s in shas)
+    )
+    detail = f"실행 결과 {len(results)}행, SHA 있음 {len(with_sha)}행, 제출 SHA와 같은 행 {len(at_sha)}행"
+    if stale:
+        shown = ", ".join(stale[:5]) + (
+            f" 외 {len(stale) - 5}개" if len(stale) > 5 else ""
+        )
+        detail += (
+            f". 결과 이후 코드가 바뀐 TC: {shown} "
+            "(`python3 scripts/harness/run_evidence.py`로 제출 커밋의 결과를 다시 만드세요)"
+        )
+    if unknown:
+        detail += f". 결과의 커밋이 저장소에 없는 TC: {', '.join(unknown[:5])}"
+    items.append(
+        ("시험 결과", OK if with_sha and not stale and not unknown else WARN, detail)
     )
 
     # Change ids only: which changes exist and whether they are archived.
