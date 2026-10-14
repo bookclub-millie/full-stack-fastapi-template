@@ -15,7 +15,7 @@ bun run dev
 
 개발 서버: <http://localhost:5173>
 
-로그인과 데이터 조회에는 백엔드와 PostgreSQL이 필요합니다. 설정·기동 방법은 [전체 개발 환경 안내](../development.md)를 참고합니다. 컴포넌트만 개발할 때는 백엔드 없이 Storybook을 사용할 수 있습니다.
+로그인과 데이터 조회에는 백엔드와 PostgreSQL이 필요합니다. 설정·기동 방법은 [전체 개발 환경 안내](../docs/local-development.md)를 참고합니다. 컴포넌트만 개발할 때는 백엔드 없이 Storybook을 사용할 수 있습니다.
 
 ### API 연결
 
@@ -128,7 +128,7 @@ bash scripts/generate-client.sh
 | `bun run test:storybook` | 컴포넌트 상호작용·접근성 검사 |
 | `bun run test` | 백엔드와 연결한 E2E 테스트 |
 
-브라우저 테스트는 `frontend`에서 `bunx playwright install chromium`으로 브라우저를 준비합니다. E2E는 백엔드·DB 등 [개발 환경](../development.md)이 필요합니다.
+브라우저 테스트는 `frontend`에서 `bunx playwright install chromium`으로 브라우저를 준비합니다. E2E는 백엔드·DB 등 [개발 환경](../docs/local-development.md)이 필요합니다.
 
 ### 생성 결과물
 
@@ -137,7 +137,7 @@ bash scripts/generate-client.sh
 ## 관련 문서와 출처
 
 - [공통 디자인 가이드](design.md)
-- [전체 개발 환경](../development.md)
+- [전체 개발 환경](../docs/local-development.md)
 - [프로젝트 문서](../docs/README.md)
 - 프로젝트 기반: [FastAPI Full Stack Template](https://github.com/fastapi/full-stack-fastapi-template)
 - 프론트엔드 도구 구성 참고: [Next.js Boilerplate](https://github.com/ixartz/Next-js-Boilerplate)
