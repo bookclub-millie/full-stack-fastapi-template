@@ -34,7 +34,7 @@ bun run dev
 
 프론트 개발 서버는 `frontend/.env`에 설정된 `http://localhost:8000`의 백엔드를 쓴다.
 
-프론트는 Bun 워크스페이스의 Vite·React CSR 앱이다. 공용 디자인 시스템 KDS는 `packages/ui`(`@kds/ui`)에, 메일 템플릿은 `packages/react-email`에 있다. 백엔드 없이 컴포넌트만 개발할 때는 `bun run storybook`을 실행하고 <http://localhost:6006>을 연다. 로그인이 필요한 화면은 백엔드가 있어야 한다. KDS 사용법은 [프론트 안내](../frontend/README.md)에 있다.
+프론트는 Bun 워크스페이스의 Vite·React CSR 앱이다. 공용 디자인 시스템 KDS는 `packages/ui`(`@kds/ui`)에, 메일 템플릿은 `packages/react-email`에 있다. 백엔드 없이 컴포넌트만 개발할 때는 `bun run storybook`을 실행하고 <http://localhost:6006>을 연다. Storybook은 앱 번들에 들어가지 않는다. 로그인이 필요한 화면은 백엔드가 있어야 한다. KDS 사용법은 [프론트 안내](../frontend/README.md)에 있다.
 
 저장소 루트에서 쓰는 검사 명령이다.
 
@@ -58,7 +58,7 @@ bun run build
 
 ## 에이전트 스킬
 
-공용 스킬은 `.agents/skills/`에 있고, `.claude/skills/`에 같은 이름의 상대 경로 심링크가 있어 Claude Code와 Codex가 같은 파일을 쓴다.
+공용 스킬은 `.agents/skills/`(Codex)에, Claude Code용은 `.claude/skills/`에 있다. 대부분은 `.claude/skills/`에서 `.agents/skills/`로 가는 상대 경로 심링크라 같은 파일을 쓰지만, `openspec-*`와 `library-skills`는 도구가 각 위치에 따로 만든 사본이라 내용이 다를 수 있다.
 
 | 스킬 | 용도 |
 |---|---|
@@ -68,7 +68,7 @@ bun run build
 | `vercel-react-best-practices` | React 성능 지침(Next.js·서버 전용 규칙은 해당 코드에만 적용) |
 | `fastapi`, `sqlmodel` | 설치된 Python 패키지가 제공하는 스킬(`library-skills`) |
 
-`fastapi`·`sqlmodel` 스킬은 `.venv` 안의 패키지를 가리키는 심링크다. `uv sync`로 백엔드 의존성을 설치하기 전에는 링크가 비어 있다.
+`fastapi`·`sqlmodel` 스킬은 `.venv` 안의 패키지를 가리키는 심링크다. `uv sync`로 백엔드 의존성을 설치하기 전에는 링크가 비어 있다. Impeccable 실행기(`.agents/skills/impeccable/scripts/impeccable`)는 처음 쓸 때 고정된 엔진을 내려받고 체크섬을 확인한다(네트워크 필요, Windows는 `impeccable.cmd`).
 
 ## Docker Compose 전체 스택
 

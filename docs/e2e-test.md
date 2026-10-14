@@ -6,17 +6,17 @@
 
 | 순서 | 재현에 필요한 내용·정확한 명령 |
 |---|---|
-| 환경 | Python 3.14(`.python-version`), uv, Bun 1.3.12(CI 기준), Docker Compose v2. CI는 `ubuntu-latest`(Frontend Quality는 `macos-15`). Playwright 1.63, Chromium |
+| 환경 | Python 3.14(`.python-version`), uv(CI는 `latest-known`), Docker Compose v2, Playwright 1.63(Chromium). Bun은 CI마다 다르다: Test Frontend·Playwright 리포트 병합 1.3.12, Frontend Quality 1.4.3(Node 22, `macos-15`), Playwright 컨테이너는 설치 시점의 최신 버전. 그 밖의 CI는 `ubuntu-latest` |
 | 합성 데이터·비밀값 없는 설정 | 저장소의 `.env` 개발용 기본값(`FASTAPI_ENV=development`, 관리자 `admin@example.com`). 배포 비밀값은 쓰지 않는다. 테스트 사용자·자료는 테스트가 무작위로 만든다(`backend/tests/utils`, `frontend/tests/e2e/utils`) |
 | 설치 | `uv sync --all-packages`, `bun install`(CI는 `bun ci`) |
 | 빌드 | `bun run build`(프론트를 `backend/app/frontend`로 빌드), `docker compose build` |
 | 기동 | `docker compose up -d --wait db mailpit` → `cd backend && uv run bash scripts/prestart.sh && uv run fastapi dev` → 저장소 루트에서 `bun run dev`. 전체 스택은 `docker compose run --rm backend bash scripts/prestart.sh && docker compose watch` |
-| 단위 시험 | 서버: `docker compose up -d --wait db mailpit` 후 `cd backend && uv run bash scripts/tests-start.sh`(커버리지 90% 기준). 프론트: 루트에서 `bun run test:unit` |
+| 단위 시험 | 서버: `docker compose up -d --wait db mailpit` 후 `backend`에서 `uv run bash scripts/prestart.sh && uv run bash scripts/tests-start.sh`(테이블은 마이그레이션이 만든다), 커버리지 기준 확인은 `uv run coverage report --fail-under=90`. 프론트: 루트에서 `bun run test:unit` |
 | 사용자 흐름 E2E | `docker compose build && docker compose run --rm backend bash scripts/prestart.sh && docker compose run --rm playwright bunx playwright test` |
 | 종료 | `docker compose down` |
 | 정리 | `docker compose down -v --remove-orphans`(DB 볼륨까지 삭제) |
 
-위 단위 시험·E2E 명령은 CI(Test Backend, Frontend Quality, Playwright Tests)가 실행하는 명령과 같다. 제출 커밋의 결과는 `python3 scripts/harness/run_evidence.py`로 CI에서 만든다. 환경 준비는 [로컬 개발 안내](local-development.md)를 참고한다. 실행 환경의 정확한 도구 버전과 재현 명령을 기록하고, 비밀값과 실제 개인정보는 기록하지 않는다.
+CI(Test Backend, Frontend Quality, Playwright Tests)도 같은 시험을 돌린다. CI는 여기에 클라이언트 생성, 샤딩, 플래키 실패 처리 같은 단계를 더하므로 정확한 단계는 각 워크플로 파일을 본다. 실행 결과 표에는 [CI 하네스의 시험 결과 수집](ci-harness.md#시험-결과-수집)이 출력한 행만 옮긴다. 환경 준비는 [로컬 개발 안내](local-development.md)를 참고한다. 실행 환경의 정확한 도구 버전과 재현 명령을 기록하고, 비밀값과 실제 개인정보는 기록하지 않는다.
 
 ## 테스트 시나리오
 

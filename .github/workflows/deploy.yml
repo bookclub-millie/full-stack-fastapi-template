@@ -14,8 +14,8 @@ permissions:
 jobs:
   deploy:
     # Do not deploy the template repository, only projects created from it, and only
-    # once the repository variable FASTAPI_CLOUD_DEPLOY is "true" (the secrets below
-    # are set). Otherwise every push to master would end in a failed run.
+    # once the repository variable FASTAPI_CLOUD_DEPLOY is "true". Otherwise every
+    # push to master would end in a failed run.
     if: github.repository != 'fastapi/full-stack-fastapi-template' && vars.FASTAPI_CLOUD_DEPLOY == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -40,6 +40,32 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "latest-known"
+      # Settings fall back to the checked-out .env (FASTAPI_ENV=development) for any
+      # value that is empty, so an unset secret would only warn and use the
+      # development default (e.g. a superuser password of "changethis").
+      - name: Check deploy secrets and variables
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
+          FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
+          FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+          PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+        run: |
+          missing=""
+          for name in DATABASE_URL SECRET_KEY FIRST_SUPERUSER_PASSWORD FASTAPI_CLOUD_TOKEN FASTAPI_CLOUD_APP_ID PROJECT_NAME FIRST_SUPERUSER; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Set these before deploying (deployment.md):$missing"
+            exit 1
+          fi
+      # Deploy with the GitHub secrets and variables only: without the development
+      # .env, a missing value fails validation and FASTAPI_ENV is unset, so the
+      # production checks (no "changethis" values) apply.
+      - name: Drop the development .env
+        run: rm -f .env
       - name: Prepare database
         run: uv run bash scripts/prestart.sh
         working-directory: backend

@@ -7,7 +7,7 @@
 | 영역 | 기술·버전 | 선택 이유 | 소스·설정 위치 |
 |---|---|---|---|
 | Backend | Python 3.14, FastAPI 0.141, SQLModel 0.0.47, Pydantic 2.13, Alembic 1.20 | 타입으로 API 검증·문서(OpenAPI)·ORM 모델을 함께 정의 | `backend/app`, `backend/pyproject.toml` |
-| DB | PostgreSQL 18, psycopg 3.3 | 관계형 데이터와 트랜잭션. Docker로 로컬·CI·배포 환경을 맞춤 | `compose.yml`, `backend/app/alembic` |
+| DB | PostgreSQL 18, psycopg 3.3 | 관계형 데이터와 트랜잭션. 로컬·CI는 Docker로 같은 버전을 쓴다(FastAPI Cloud 배포는 외부 PostgreSQL) | `compose.yml`, `backend/app/alembic` |
 | Frontend | React 19, TypeScript 6, Vite 8, TanStack Router·Query | CSR 앱, 파일 기반 라우팅, 서버 상태 캐시 | `frontend/src` |
 | UI | KDS(`@kds/ui`), Tailwind CSS 4, Storybook | 팀 디자인 시스템의 공용 컴포넌트와 토큰 | `packages/ui`, `frontend/.storybook` |
 | API 클라이언트 | OpenAPI에서 자동 생성한 TypeScript 클라이언트 | 백엔드 모델과 프론트 타입을 일치시킴 | `frontend/src/client`, `scripts/generate-client.sh` |
@@ -40,7 +40,7 @@
 - 외부 의존성: PostgreSQL, SMTP(로컬은 Mailpit).
 - 기동 전 `backend/scripts/prestart.sh`가 마이그레이션을 적용하고(`alembic upgrade head`) 첫 관리자 계정을 만든다(`app/initial_data.py`). DB가 먼저 떠 있어야 한다(`docker compose up -d --wait db`).
 - 배포: Docker Compose(Traefik이 HTTP를 HTTPS로 전환, [안내](../deployment-docker-compose.md)) 또는 FastAPI Cloud(저장소 변수 `FASTAPI_CLOUD_DEPLOY=true`일 때만 실행, [안내](../deployment.md)).
-- 복구: 로컬은 `docker compose down -v` 후 `prestart.sh`로 다시 만든다(데이터가 지워진다). 운영 데이터 백업은 템플릿에 없다.
+- 복구: 로컬은 `docker compose down -v` 후 `docker compose up -d --wait db`, `prestart.sh` 순서로 다시 만든다(데이터가 지워진다). 운영 데이터 백업은 템플릿에 없다.
 
 ## 주요 결정
 

@@ -68,7 +68,7 @@ Add these repository secrets:
 
 Use the same values configured in FastAPI Cloud. For `DATABASE_URL`, use the connection URL from your database provider. The database must be reachable from GitHub-hosted runners so the preparation step can connect to it.
 
-Finally, add the repository variable `FASTAPI_CLOUD_DEPLOY` with the value `true`. The Deploy workflow is skipped until then, so a repository created from this template does not fail on every push to `master` before deployment is set up.
+Finally, add the repository variable `FASTAPI_CLOUD_DEPLOY` with the value `true`. The Deploy workflow is skipped until then, so a repository created from this template does not fail on every push to `master` before deployment is set up. Once enabled, the workflow deletes the development `.env` from its checkout and stops with an error if any of the secrets or variables above is empty, so it never falls back to the development defaults.
 
 The deployment workflow performs these steps:
 
